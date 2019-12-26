@@ -1,0 +1,19 @@
+JFPJC: "John's Field-Programmable JPEG Compressor"
+
+I want to have a better name for this project.
+
+What's the POINT of it? What are some salient features?
+
+  * I want to do it
+  * I want to cut corners for the sake of power consumption
+  * It will probably suck
+  * It's a hardware device.
+  * It's a straightforward adaptation of standard
+
+Name ideas:
+    jeez - jpeg squeeze
+    Short, but not descriptive in terms of what it is and why it's being made.
+
+    fdjc - field-deployable jpeg compressor (as in FPGA)
+    Short, descriptive, but not unique enough?
+    maybe jfdjc

@@ -1,0 +1,9 @@
+This directory contains a C-based JPEG compressor which compresses PNM images.
+
+I chose to develop this first merely as an exercise to fully familiarize myself with the JPEG
+standard before trying to progress to the verilog implementation
+
+For simplicity, we assume that all images have a bit depth of 8 bits. For now, we also have all
+images as grayscale, but I may improve that later on.
+
+should rename this folder "reference implementation"
