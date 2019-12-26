@@ -66,4 +66,12 @@ int* image_copy_mcu(image_t* im, int xstart, int ystart);
  */
 void mcu_fdct_floats(int* data_in, int* data_out);
 
+void mcu_fdct_floats_with_float_cosine_table(int* data_in, int* data_out, const float* table);
+
+/**
+ * Generates a table of the DCT coefficients in q7 form.
+ */
+void generate_q7_cosines(int8_t target[64]);
+void generate_float_cosines(float target[64]);
+
 #endif

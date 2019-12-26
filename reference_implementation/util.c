@@ -149,3 +149,58 @@ void mcu_fdct_floats(int* data_in, int* data_out)
         }
     }
 }
+
+void mcu_fdct_floats_with_float_cosine_table(int* data_in, int* data_out, const float* table)
+{
+    float data_out_f[8][8];
+    memset(data_out_f, 0, sizeof(data_out_f));
+
+    for (int v = 0; v < 8; v++) {
+        for (int u = 0; u < 8; u++) {
+            int table_idx   = u * 8 + v;
+            for (int y = 0; y < 8; y++) {
+                for (int x = 0; x < 8; x++) {
+                    int data_in_idx = y * 8 + x;
+                    data_out_f[v][u] += ((float)data_in[data_in_idx]) * table[table_idx];
+                }
+            }
+            data_out_f[v][u] /= 4.f;
+        }
+    }
+
+    for (int j = 0; j < 8; j++) {
+        for (int i = 0; i < 8; i++) {
+            // for u, v = 0, component is scaled by (1 / sqrt(2))
+            float Cv = (j == 0) ? (1 / sqrt(2)) : 1;
+            float Cu = (i == 0) ? (1 / sqrt(2)) : 1;
+
+
+            int data_out_idx = j * 8 + i;
+            data_out[data_out_idx] = (int)round(data_out_f[j][i] * Cu * Cv);
+        }
+    }
+}
+
+void generate_float_cosines(float target[64])
+{
+    for (int y = 0; y < 8; y++) {
+        for (int x = 0; x < 8; x++) {
+            int idx = y * 8 + x;
+            float coeff = (cos(((2.f * (float)x + 1.f) * y * PI) / 16.f) *
+                           cos(((2.f * (float)y + 1.f) * x * PI) / 16.f));
+            target[idx] = coeff;
+        }
+    }
+}
+
+void generate_q7_cosines(int8_t target[64])
+{
+    for (int y = 0; y < 8; y++) {
+        for (int x = 0; x < 8; x++) {
+            int idx = y * 8 + x;
+            float coeff = (cos(((2.f * (float)x + 1.f) * y * PI) / 16.f) *
+                           cos(((2.f * (float)y + 1.f) * x * PI) / 16.f));
+            target[idx] = (int8_t)round(128.f * coeff);
+        }
+    }
+}
