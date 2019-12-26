@@ -23,15 +23,12 @@ image_dct_t* image_dct_create(image_t* image)
     result->height = (image->height + 7) / 8;
     result->blocks = calloc(result->width * result->height, sizeof(int*));
 
-    float cosine_table[64];
-    generate_float_cosines(cosine_table);
-
     for (int block_y = 0; block_y < result->height; block_y++) {
         for (int block_x = 0; block_x < result->width; block_x++) {
             int blockidx = (block_y * result->width) + block_x;
             int* this_mcu = image_copy_mcu(image, block_x * 8, block_y * 8);
             result->blocks[blockidx] = calloc(64, sizeof(int));
-            mcu_fdct_floats_with_float_cosine_table(this_mcu, result->blocks[blockidx], cosine_table);
+            mcu_fdct_floats(this_mcu, result->blocks[blockidx]);
             free(this_mcu);
         }
     }
