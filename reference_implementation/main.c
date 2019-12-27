@@ -1,3 +1,7 @@
+/**
+ * Copyright 2020, John Mamish
+ */
+
 #include <pam.h>
 #include <stdio.h>
 #include <stdbool.h>
