@@ -66,4 +66,9 @@ int* image_copy_mcu(image_t* im, int xstart, int ystart);
  */
 void mcu_fdct_floats(int* data_in, int* data_out);
 
+/**
+ *
+ */
+void jpeg_zigzag_data_inplace(int* data);
+
 #endif

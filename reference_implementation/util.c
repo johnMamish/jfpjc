@@ -118,6 +118,7 @@ int* image_copy_mcu(image_t* im, int xstart, int ystart)
     return result;
 }
 
+
 void mcu_fdct_floats(int* data_in, int* data_out)
 {
     float data_out_f[8][8];
@@ -148,4 +149,48 @@ void mcu_fdct_floats(int* data_in, int* data_out)
             data_out[data_out_idx] = (int)round(data_out_f[j][i] * Cu * Cv);
         }
     }
+}
+
+
+void jpeg_zigzag_data_inplace(int* data)
+{
+    int temp[64];
+    memcpy(temp, data, sizeof(temp));
+
+    // zigzag starts on [1, 0] and moves in the downwards direction
+    int zigdir = -1;
+    int zig_x = 1;
+    int zig_y = 0;
+
+    for (int i = 1; i < 64; i++) {
+        // copy data over
+        int zigidx = (zig_x + (8 * zig_y));
+        data[i] = temp[zigidx];
+
+        // update zig coordinates
+        // check and see if moving in the zig direction would put us out of bounds
+        int nx = zig_x + zigdir;
+        int ny = zig_y - zigdir;
+        if ((nx < 0) && (ny > 7)) {
+            zig_x++;
+            zigdir = -zigdir;
+        } else if ((nx < 0) && (zigdir == -1)) {
+            zig_y++;
+            zigdir = -zigdir;
+        } else if ((ny < 0) && (zigdir == 1)) {
+            zig_x++;
+            zigdir = -zigdir;
+        } else if ((nx > 7) && (zigdir == 1)) {
+            zig_y++;
+            zigdir = -zigdir;
+        } else if ((ny > 7) && (zigdir == -1)) {
+            zig_x++;
+            zigdir = -zigdir;
+        } else {
+            zig_x = nx;
+            zig_y = ny;
+        }
+    }
+
+    data[0] = temp[0];
 }
