@@ -28,6 +28,16 @@ typedef struct image {
     int (*components)[4];
 } image_t;
 
+typedef struct bytearray
+{
+    uint8_t* data;
+    int capacity;
+    int size;
+} bytearray_t;
+
+bytearray_t* bytearray_create();
+void bytearray_add_byte(bytearray_t* arr, uint8_t byte);
+void bytearray_add_bytes(bytearray_t* arr, const uint8_t* bytes, int len);
 
 /**
  * Given a

@@ -133,7 +133,9 @@ typedef struct uncoded_jpeg_scan
 
 
 /**
- * Compresses a given uncoded jpeg scan into a bytestream
+ * Compresses a given uncoded jpeg scan into a bytestream. Requires that you provide huffman tables
+ * and quantization tables. The given huffman and quantization tables will be included in the output
+ * bytestream.
  *
  * huffman_tables[0] are used for the first component, huffman_tables[1] are used for all other
  * components.
@@ -145,6 +147,7 @@ typedef struct uncoded_jpeg_scan
 int jpeg_compress(const uncoded_jpeg_scan_t* jpeg,
                   const jpeg_huffman_table_t dc_huffman_tables[2],
                   const jpeg_huffman_table_t ac_huffman_tables[2],
-                  const jpeg_quantization_table_t* quant_tables);
+                  const jpeg_quantization_table_t* quant_tables,
+                  uint8_t** dest);
 
 #endif

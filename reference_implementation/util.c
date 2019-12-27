@@ -34,6 +34,36 @@ const int quant_table_low_quality[64] =
     24, 24, 24, 24, 24, 24, 24, 24
 };
 
+bytearray_t* bytearray_create()
+{
+    bytearray_t* res = calloc(1, sizeof(bytearray_t));
+    res->capacity = 128;
+    res->size = 0;
+    res->data = malloc(res->capacity);
+    return res;
+}
+
+void bytearray_add_byte(bytearray_t* arr, uint8_t byte)
+{
+    if (arr->size == arr->capacity) {
+        arr->capacity *= 2;
+        arr->data = realloc(arr->data, arr->capacity);
+    }
+
+    arr->data[arr->size++] = byte;
+}
+
+void bytearray_add_bytes(bytearray_t* arr, const uint8_t* bytes, int len)
+{
+    if ((arr->size + len) > arr->capacity) {
+        arr->capacity *= 2;
+        arr->data = realloc(arr->data, arr->capacity);
+    }
+
+    memcpy(arr->data + arr->size, bytes, len);
+    arr->size += len;
+}
+
 image_t* image_create_from_pam(const char* file, char* argv0)
 {
     image_t* result = calloc(1, sizeof(image_t*));
