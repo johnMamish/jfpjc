@@ -1,0 +1,19 @@
+JMCUJC - "John's Microcontroller JPEG Compressor"
+
+As a sub-project, I decided to implement a somewhat flexible, efficient jpeg compressor targetting
+embedded systems. It is seperate from the reference implementation. I would also like to be able to
+find ways to do more approximate DCT computing for the sake of speed and power at the cost of image
+quality (?)
+
+Depending on the preprocessing stages that the end-user puts in place, I plan for it to handle
+grayscale, bayer-encoded, RGB, and RGBA images. All images will be compressed with 8-bit, baseline
+sequential compression. Image size, component subsampling, huffman tables, and quantization factors
+shall all be specified by the user, with defaults available.
+
+My aim is for it to take less than 8kB and fewer than 10Mcycles when de-bayering and encoding a
+320-pixel wide RGB image using 8-pixel tall MCUs on an ARM cortex-M4 processor. I bet I could even
+get it down to 5Mcycles. On second thought, the 8kB limit might be a best-case-scenario type thing.
+The average use case might require ~80kBytes because of how fast the camera spits out pixels vs how
+fast we can encode. I would be very happy if it was configurable to get down to 8kB but the standard
+use case takes ~80kB. I guess I'd be ok with it as well if we just said "you've gotta be able to
+buffer the entire image".
