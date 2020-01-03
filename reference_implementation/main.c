@@ -62,8 +62,8 @@ void image_dct_printblock(int* block)
 
 int main(int argc, char** argv)
 {
-    if (argc != 2) {
-        printf("Usage: %s <image name>\r\n", argv[0]);
+    if (argc != 3) {
+        printf("Usage: %s <image name> <output file name>\r\n", argv[0]);
         return -1;
     }
 
@@ -80,17 +80,41 @@ int main(int argc, char** argv)
     //const component_params_t chrom_params  {2, 1, 1, 1};
     const component_params_t* component_params[] = { &lum_params };
 
-    const jpeg_quantization_table_t* quant_tables[] = { &chrom_quant_table_medium };
+    const jpeg_quantization_table_t* quant_tables[] = { &lum_quant_table_medium, NULL, NULL, NULL };
 
     uint8_t* jpeg_out;
     uncoded_jpeg_scan_t* scan = uncoded_jpeg_scan_create(image, component_params, 1, quant_tables);
-    printf("MCU (X, Y) (0, 3)\n");
-    image_dct_printblock(scan->components[0].blocks[3 * scan->components[0].mcu_width + 0].values);
-    printf("MCU (X, Y) (1, 3)\n");
-    image_dct_printblock(scan->components[0].blocks[3 * scan->components[0].mcu_width + 1].values);
 
-    //int jpeg_len = jpeg_compress(scan, dc, ac, quant, &jpeg_out);
+    for (int x = 0; x < 0; x++) {
+        printf("MCU (X, Y) (%i, 3) DC diff = %i\n", x,
+               scan->components[0].blocks[3 * scan->components[0].mcu_width + x].values[0] *
+               quant_tables[scan->components[0].quant_table_selector]->Q[0]);
+        //image_dct_printblock(scan->components[0].blocks[3 * scan->components[0].mcu_width + x].values);
+        //printf("MCU (X, Y) (1, 3)\n");
+        //image_dct_printblock(scan->components[0].blocks[3 * scan->components[0].mcu_width + x].values);
+    }
+
+    const jpeg_huffman_table_t* dc_huffs[] = { &lum_dc_huffman_table, NULL };
+    const jpeg_huffman_table_t* ac_huffs[] = { &lum_ac_huffman_table, NULL };
+
+    int jpeg_len = jpeg_compress(scan, dc_huffs, ac_huffs, quant_tables, &jpeg_out);
+
+    FILE* outfile = fopen(argv[2], "wb");
+    if (outfile == NULL) {
+        printf("failed to open %s for writing\n", argv[2]);
+        return -1;
+    }
+    printf("writing %i bytes to file %s... ", jpeg_len, argv[2]);
+    if (fwrite(jpeg_out, jpeg_len, 1, outfile) != 1) {
+        printf("failed.\n");
+        return -1;
+    } else {
+        printf("done.\n");
+    }
+
+    fclose(outfile);
 
     image_destroy(image);
+
     return 0;
 }

@@ -82,4 +82,5 @@ void mcu_fdct_floats(int* data_in, int* data_out);
  */
 void jpeg_zigzag_data_inplace(int* data);
 
+void jpeg_zigzag_data_inplace_u8(uint8_t* data);
 #endif

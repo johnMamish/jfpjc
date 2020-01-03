@@ -164,14 +164,12 @@ int jpeg_compress(const uncoded_jpeg_scan_t* jpeg,
                   uint8_t** dest);
 
 
-#if 0
-const extern jmcujc_huffman_table_t lum_dc_huffman_table;
-const extern jmcujc_huffman_table_t lum_ac_huffman_table;
-const extern jmcujc_huffman_table_t chrom_dc_huffman_table;
-const extern jmcujc_huffman_table_t chrom_ac_huffman_table;
-#endif
+const extern jpeg_huffman_table_t lum_dc_huffman_table;
+const extern jpeg_huffman_table_t lum_ac_huffman_table;
+const extern jpeg_huffman_table_t chrom_dc_huffman_table;
+const extern jpeg_huffman_table_t chrom_ac_huffman_table;
 
-//const extern jpeg_quantization_table_t lum_quant_table_best;
+const extern jpeg_quantization_table_t lum_quant_table_best;
 //const extern jpeg_quantization_table_t lum_quant_table_high;
 const extern jpeg_quantization_table_t lum_quant_table_medium;
 //const extern jpeg_quantization_table_t lum_quant_table_low;

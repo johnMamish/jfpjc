@@ -1,4 +1,6 @@
 #include "./jpeg.h"
+#include "bit_packer.h"
+#include <string.h>
 
 // jpeg util functions
 // --------------------------------
@@ -129,148 +131,248 @@ static int jpeg_write_huffman_table(const jpeg_huffman_table_t* table, bytearray
     return 0;
 }
 
-#if 0
-bytearray_t* jpeg_write_image(const jpeg_image_t* jpeg)
+typedef struct huffman_reverse_lookup_entry
 {
-    bytearray_t* ba = bytearray_create();
+    // bit length of 0 means that there is no entry for that value.
+    int bit_length;
+    uint32_t value;
+} huffman_reverse_lookup_entry_t;
 
-    // start by writing SOI
-    bytearray_add_bytes(ba, (uint8_t[]){ 0xff, SOI }, 2);
+typedef struct huffman_reverse_lookup_table
+{
+    huffman_reverse_lookup_entry_t entries[256];
+} huffman_reverse_lookup_table_t;
 
-    // write all random segments
-    for (int i = 0; i < jpeg->num_misc_segments; i++) {
-        if ((retval = jpeg_write_segment_header(&jpeg->misc_segments[i]->header, fp))) {
-            goto cleanup;
-        }
-        if (fwrite(jpeg->misc_segments[i]->data, 1, jpeg->misc_segments[i]->header.Ls - 2, fp) !=
-            jpeg->misc_segments[i]->header.Ls - 2) {
-            retval = -1;
-            goto cleanup;
-        }
-    }
+/**
+ * The huffman table returned by this function can be safely destroyed with free().
+ */
+huffman_reverse_lookup_table_t* huffman_reverse_lookup_table_create(const jpeg_huffman_table_t* t)
+{
+    huffman_reverse_lookup_table_t* hrlt = calloc(1, sizeof(huffman_reverse_lookup_table_t));
 
-    // write quantization tables
-    if (fwrite((uint8_t[]){ 0xff, DQT }, 2, 1, fp) != 1) {
-        retval = -1;
-        goto cleanup;
-    }
+    uint32_t codedval = 0;
+    int entryidx = 0;
+    for (int bits = 0; bits < 16; bits++) {
+        codedval <<= 1;
+        for (int i = 0; i < t->number_of_codes_with_length[bits]; i++, entryidx++) {
+            uint8_t uncodedval = t->huffman_codes[entryidx];
 
-    // calculate length of quantization tables. assume they are all 8-bit.
-    int num_valid_qtables = 0;
-    for (int i = 0; i < 4; i++) {
-        if (jpeg->jpeg_write_quantization_tables[i].table_valid) {
-            num_valid_qtables++;
-        }
-    }
-    uint16_t qtLs = 65 * num_valid_qtables + 2;
-    uint8_t Lshton[] = { ((qtLs >> 8) & 0xff), qtLs & 0xff };
-    fwrite(Lshton, 1, 2, fp);
-
-    for (int i = 0; i < 4; i++) {
-        const jpeg_quantization_table_t* qt = &jpeg->jpeg_quantization_tables[i];
-        if (qt->table_valid) {
-            if (fwrite(&qt->pq_tq, 1, 1, fp) != 1) {
-                retval = -1;
-                goto cleanup;
-            }
-
-            for (int i = 0; i < 64; i++) {
-                if (((qt->pq_tq >> 4) & 0x0f) == 0) {
-                    // 8-bit quant table
-                    if (fwrite(&qt->Q[i]._8, 1, 1, fp) != 1) {
-                        retval = -1;
-                        goto cleanup;
-                    }
-                } else {
-                    // 16-bit quant table
-                    // TODO WRONG BIT ORDER.
-                    if (fwrite(&qt->Q[i]._16, 2, 1, fp) != 1) {
-                        retval = -1;
-                        goto cleanup;
-                    }
-                }
-            }
+            hrlt->entries[uncodedval].bit_length = bits + 1;
+            hrlt->entries[uncodedval].value = codedval;
+            codedval++;
         }
     }
 
-    // write huffman tables
-    for (int i = 0; i < 4; i++) {
-        const jpeg_huffman_table_t* table = &jpeg->dc_huffman_tables[i];
-        if (table->header.segment_marker == DHT) {
-            if ((retval = jpeg_write_huffman_table(table, fp))) {
-                goto cleanup;
-            }
-        }
-    }
-    for (int i = 0; i < 4; i++) {
-        const jpeg_huffman_table_t* table = &jpeg->ac_huffman_tables[i];
-        if (table->header.segment_marker == DHT) {
-            if ((retval = jpeg_write_huffman_table(table, fp))) {
-                goto cleanup;
-            }
-        }
-    }
-
-    // write SOF
-    jpeg_write_segment_header(&jpeg->frame_header.header, fp);
-    fwrite(&jpeg->frame_header.sample_precision, 1, 1, fp);
-    uint8_t nlhton[] = { (jpeg->frame_header.number_of_lines >> 8) & 0xff,
-                         (jpeg->frame_header.number_of_lines) & 0xff };
-    fwrite(nlhton, 2, 1, fp);
-    uint8_t splhton[] = { (jpeg->frame_header.samples_per_line >> 8) & 0xff,
-                          (jpeg->frame_header.samples_per_line) & 0xff };
-    fwrite(splhton, 2, 1, fp);
-    fwrite(&jpeg->frame_header.num_components, 1, 1, fp);
-    for (int i = 0; i < jpeg->frame_header.num_components; i++) {
-        frame_component_specification_parameters_t* csp = &jpeg->frame_header.csps[i];
-        fwrite(&csp->component_identifier, 1, 1, fp);
-        uint8_t hi_vi = (csp->horizontal_sampling_factor << 4) | csp->vertical_sampling_factor;
-        fwrite(&hi_vi, 1, 1, fp);
-        fwrite(&csp->quantization_table_selector, 1, 1, fp);
-    }
-
-    // write SOS
-    jpeg_write_segment_header(&jpeg->scan.jpeg_scan_header.header, fp);
-    fwrite(&jpeg->scan.jpeg_scan_header.num_components, 1, 1, fp);
-    for (int i = 0; i < jpeg->scan.jpeg_scan_header.num_components; i++) {
-        fwrite(&jpeg->scan.jpeg_scan_header.csps[i].scan_component_selector, 1, 1, fp);
-        fwrite(&jpeg->scan.jpeg_scan_header.csps[i].dc_ac_entropy_coding_table, 1, 1, fp);
-    }
-    fwrite(&jpeg->scan.jpeg_scan_header.selection_start, 1, 1, fp);
-    fwrite(&jpeg->scan.jpeg_scan_header.selection_end, 1, 1, fp);
-    fwrite(&jpeg->scan.jpeg_scan_header.approximation_high_approximation_low, 1, 1, fp);
-
-    // write ecs.
-    // do it byte by byte in case any byte-stuffing needs to happen.
-    for (int i = 0; i < jpeg->scan.entropy_coded_segments[0]->size; i++) {
-        uint8_t writebyte = jpeg->scan.entropy_coded_segments[0]->data[i];
-        fwrite(&writebyte, 1, 1, fp);
-
-        if (writebyte == 0xff) {
-            fwrite((uint8_t[]) {0x00}, 1, 1, fp);
-        }
-    }
-
-
-    retval = 0;
-
-cleanup:
-    fclose(fp);
-    return retval;
+    return hrlt;
 }
-#endif
 
+static uint16_t coefficient_value_to_coded_value(int16_t coefficient_value, int* bitlen)
+{
+    uint16_t result = 0;
+    if (coefficient_value == 0) {
+        *bitlen = 0;
+        return 0;
+    }
+
+    // there's definately a faster way to do this, but I didn't want to prematurely optimize.
+    // look into __builtin_ffs when the time comes.
+    int min_less1 = 0;
+    int max       = 1;
+    *bitlen = 1;
+    int16_t coeff_abs = (coefficient_value < 0) ? (-coefficient_value) : (coefficient_value);
+    for (; *bitlen < 13; (*bitlen)++) {
+        if ((coeff_abs > min_less1) && (coeff_abs <= max)) {
+            break;
+        }
+        min_less1 = max;
+        max <<= 1;
+        max |= 1;
+    }
+
+    if (*bitlen == 13) {
+        return 0;
+    }
+
+    if (coefficient_value < 0) {
+        result = coefficient_value + max;
+    } else {
+        result = coefficient_value;
+    }
+
+    return result;
+}
+
+#if 1
 int jpeg_huffman_code(const uncoded_jpeg_scan_t* scan,
                       const jpeg_huffman_table_t* dc_huffman_tables[2],
                       const jpeg_huffman_table_t* ac_huffman_tables[2],
                       uint8_t** result)
 {
-    *result = malloc(100);
+    *result = NULL;
 
-    return 0;
+    // make huffman reverse lookup tables.
+    huffman_reverse_lookup_table_t* dc_hrlts[2] = { 0 };
+    huffman_reverse_lookup_table_t* ac_hrlts[2] = { 0 };
+    for (int i = 0; i < 2; i++) {
+        if (dc_huffman_tables[i])
+            dc_hrlts[i] = huffman_reverse_lookup_table_create(dc_huffman_tables[i]);
+        if (ac_huffman_tables[i])
+            ac_hrlts[i] = huffman_reverse_lookup_table_create(ac_huffman_tables[i]);
+    }
+
+    // huffman code
+    // num of MCUs is the min of the number of blocks
+    int num_mcus = scan->components[0].num_blocks;
+    for (int i = 1; i < scan->num_components; i++) {
+        if (scan->components[i].num_blocks < num_mcus) {
+            num_mcus = scan->components[i].num_blocks;
+        }
+    }
+
+    bit_packer_t* bp = bit_packer_create();
+
+    for (int i = 0; i < num_mcus; i++) {
+        for (int j = 0; j < scan->num_components; j++) {
+            int blocks_per_mcu = (scan->components[j].H_sample_factor *
+                                  scan->components[j].V_sample_factor);
+            int block_idx      = blocks_per_mcu * i;
+
+            uint8_t huff_tables = scan->components[j].entropy_coding_table;
+            int dc_huff_idx = huff_tables;
+            int ac_huff_idx = huff_tables;
+            const huffman_reverse_lookup_table_t* dc_hrlt = (dc_hrlts[dc_huff_idx]);
+            const huffman_reverse_lookup_table_t* ac_hrlt = (ac_hrlts[ac_huff_idx]);
+
+            // huffman encode!
+            for (int k = 0; k < blocks_per_mcu; k++) {
+                //printf("jpeg recoding trace:    recoding block %i of component %i of MCU %i.\n",
+                //k, j, i);
+                int* source_block = scan->components[j].blocks[block_idx + k].values;
+
+                // ======= DC length and DC coefficient =======
+                int dc_raw_length;
+                uint16_t coded_coefficient_value =
+                    coefficient_value_to_coded_value(source_block[0], &dc_raw_length);
+                //printf("jpeg recoding trace:    Coding %i bits for DC value %i.\n", dc_raw_length,
+                //source_block->dc_value);
+
+                if ((dc_raw_length < 0) || (dc_raw_length > 11)) {
+                    printf("jpeg recoding error:    Trying to pack dc coefficient with length of "
+                           "%i bits.\n", dc_raw_length);
+                    return -1;
+                }
+
+                const huffman_reverse_lookup_entry_t* huffman_code = &dc_hrlt->entries[dc_raw_length];
+                if (huffman_code->bit_length == 0) {
+                    printf("jpeg recoding error:    No huffman code found for %02x.\n",
+                           dc_raw_length);
+                    return -1;
+                }
+                bit_packer_pack_u32(huffman_code->value, huffman_code->bit_length, bp);
+                bit_packer_pack_u16(coded_coefficient_value, dc_raw_length, bp);
+
+                // ======= AC coefficients =======
+                unsigned int ac_coeff_idx = 1;
+
+                while (ac_coeff_idx < 64) {
+                    // find next non-zero coefficient
+                    unsigned int l;
+                    for (l = ac_coeff_idx; (source_block[l] == 0) && (l < 64); l++);
+
+                    int zeroes_to_rle = l - ac_coeff_idx;
+
+                    if (l == 64) {
+                        // we made it all the way to the end; slap an EOB in there.
+                        const huffman_reverse_lookup_entry_t* huffman_code = &ac_hrlt->entries[0];
+                        if (huffman_code->bit_length == 0) {
+                            //printf("jpeg recoding error:    No huffman code found for %02x.\n", 0);
+                            return -1;
+                        }
+                        bit_packer_pack_u32(huffman_code->value, huffman_code->bit_length, bp);
+                    } else if ((zeroes_to_rle >= 0) && (zeroes_to_rle < 16)) {
+                        // pack AC coefficient normally
+                        int cidx = ac_coeff_idx + zeroes_to_rle;
+                        int ac_raw_length;
+                        uint16_t coded_coefficient_value =
+                            coefficient_value_to_coded_value(source_block[cidx],
+                                                             &ac_raw_length);
+
+                        if ((ac_raw_length < 0) || (ac_raw_length > 10)) {
+                            //printf("jpeg recoding error:    "
+                            //"Trying to pack ac coefficient with length of %i bits.\n",
+                            //ac_raw_length);
+                            return -1;
+                        }
+                        //printf("jpeg recoding trace:    Coding %i bits for AC value.\n",
+                        //ac_raw_length);
+
+                        uint8_t rrrrssss = ((uint8_t)zeroes_to_rle << 4) | (ac_raw_length);
+                        const huffman_reverse_lookup_entry_t* huffman_code =
+                            &ac_hrlt->entries[rrrrssss];
+                        if (huffman_code->bit_length == 0) {
+                            printf("jpeg recoding error:    No huffman code found for %02x.\n", 0);
+                            return -1;
+                        }
+                        bit_packer_pack_u32(huffman_code->value, huffman_code->bit_length, bp);
+                        bit_packer_pack_u16(coded_coefficient_value, ac_raw_length, bp);
+                    } else {
+                        // if there are 17 or more zeroes that need to be RLE'd before another
+                        // coefficient is reached, we may only pack only 16 of them.
+                        uint8_t rrrrssss = 0xf0;
+                        const huffman_reverse_lookup_entry_t* huffman_code =
+                            &ac_hrlt->entries[rrrrssss];
+                        if (huffman_code->bit_length == 0) {
+                            printf("jpeg recoding error:    No huffman code found for %02x.\n", 0);
+                            return -1;
+                        }
+                        bit_packer_pack_u32(huffman_code->value, huffman_code->bit_length, bp);
+
+                        l = ac_coeff_idx + 15;
+                    }
+
+                    ac_coeff_idx = l + 1;
+                }
+                //printf("jpeg recoding trace:    ========================================\n");
+            }
+        }
+    }
+
+    bit_packer_fill_endbits(bp);
+
+    *result = malloc(bp->curidx);
+    int len = bp->curidx;
+    memcpy(*result, bp->data, bp->curidx);
+
+    bit_packer_destroy(bp);
+
+    for (int i = 0; i < 2; i++) {
+        free(dc_hrlts[i]);
+        free(ac_hrlts[i]);
+    }
+
+    return len;
+}
+#endif
+
+static void uncoded_jpeg_scan_quantize(jpeg_dct_component_t* component,
+                                       const jpeg_quantization_table_t* quant)
+{
+    for (int i = 0; i < component->num_blocks; i++) {
+        for (int j = 0; j < 64; j++) {
+            component->blocks[i].values[j] /= quant->Q[j];
+        }
+    }
 }
 
-
+static void component_differentially_code(jpeg_dct_component_t* component)
+{
+    int pred = 0;
+    for (int i = 0; i < component->num_blocks; i++) {
+        int diff = component->blocks[i].values[0] - pred;
+        pred = component->blocks[i].values[0];
+        component->blocks[i].values[0] = diff;
+    }
+}
 
 uncoded_jpeg_scan_t* uncoded_jpeg_scan_create(const image_t* image,
                                               const component_params_t** params,
@@ -297,6 +399,13 @@ uncoded_jpeg_scan_t* uncoded_jpeg_scan_create(const image_t* image,
 
         // initialize dct component
         component_take_dct(&scan->components[i], i, params[i], HV_squeeze, image);
+
+        // quantize, zigzag, and differentially encode DC component
+        int quant_table = scan->components[i].quant_table_selector;
+        uncoded_jpeg_scan_quantize(&scan->components[i], tables[quant_table]);
+        for (int j = 0; j < scan->components[i].num_blocks; j++)
+            jpeg_zigzag_data_inplace(scan->components[i].blocks[j].values);
+        component_differentially_code(&scan->components[i]);
     }
 
     return scan;
@@ -314,10 +423,10 @@ int jpeg_compress(const uncoded_jpeg_scan_t* scan,
     // ======= SOI / JFIF =======
     bytearray_add_bytes(ba, (uint8_t[]){ 0xff, 0xd8 }, 2);
     const char* jfifseg = "\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00";
-    bytearray_add_bytes(ba, (const uint8_t*)jfifseg, 16);
+    bytearray_add_bytes(ba, (const uint8_t*)jfifseg, 18);
 
     // ======= quant tables =======
-    bytearray_add_bytes(ba, (uint8_t[]){ 0xff, 0xdb }, 1);
+    bytearray_add_bytes(ba, (uint8_t[]){ 0xff, 0xdb }, 2);
 
     int num_valid_qtables = count_non_null_elements((const void**)quant_tables, 4);
     uint16_t qtLs = 65 * num_valid_qtables + 2;
@@ -326,7 +435,11 @@ int jpeg_compress(const uncoded_jpeg_scan_t* scan,
     for (int i = 0; i < 4; i++) {
         if (quant_tables[i] != NULL) {
             bytearray_add_bytes(ba, &quant_tables[i]->pq_tq, 1);
-            bytearray_add_bytes(ba, quant_tables[i]->Q, 64);
+            static uint8_t temp[64];
+            memcpy(temp, quant_tables[i]->Q, sizeof(temp));
+            jpeg_zigzag_data_inplace_u8(temp);
+            //bytearray_add_bytes(ba, quant_tables[i]->Q, 64);
+            bytearray_add_bytes(ba, temp, 64);
         }
     }
 
@@ -354,6 +467,7 @@ int jpeg_compress(const uncoded_jpeg_scan_t* scan,
         uint8_t hi_vi = ((scan->components[i].H_sample_factor << 4) |
                          scan->components[i].V_sample_factor);
         bytearray_add_bytes(ba, &hi_vi, 1);
+        bytearray_add_bytes(ba, (uint8_t[]) {scan->components[i].entropy_coding_table}, 1);
     }
 
     // ======= SOS =======
@@ -378,7 +492,7 @@ int jpeg_compress(const uncoded_jpeg_scan_t* scan,
     // where I do this.
     //uncoded_jpeg_scan_t* scan = uncoded_jpeg_scan_create(image,
 
-    uint8_t* ecs;
+    uint8_t* ecs = NULL;
     int ecs_len = jpeg_huffman_code(scan, dc_huffman_tables, ac_huffman_tables, &ecs);
     for (int i = 0; i < ecs_len; i++) {
         uint8_t writebyte = ecs[i];
@@ -401,15 +515,81 @@ int jpeg_compress(const uncoded_jpeg_scan_t* scan,
 }
 
 
-#warning "huffman tables not done!"
-#if 0
-const jmcujc_huffman_table_t lum_dc_huffman_table = { 0 };
-const jmcujc_huffman_table_t lum_ac_huffman_table = { 0 };
-const jmcujc_huffman_table_t chrom_dc_huffman_table = { 0 };
-const jmcujc_huffman_table_t chrom_ac_huffman_table = { 0 };
-#endif
+const jpeg_huffman_table_t lum_dc_huffman_table =
+{
+    .header = { .segment_marker = 0xc4, .Ls = 0x1f },
+    .tc_td  = 0x00,
+    .number_of_codes_with_length = { 0, 1, 5, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0 },
 
-//const jpeg_quantization_table_t lum_quant_table_best;
+    .huffman_codes = {
+
+        0x00,
+        0x01, 0x02, 0x03, 0x04, 0x05,
+        0x06,
+        0x07,
+        0x08,
+        0x09,
+        0x0a,
+        0x0b
+
+
+
+
+
+
+
+    }
+};
+const jpeg_huffman_table_t lum_ac_huffman_table =
+{
+    .header = { .segment_marker = 0xc4, .Ls = 0xb5 },
+    .tc_td  = 0x10,
+    .number_of_codes_with_length = { 0, 2, 1, 3, 3, 2, 4, 3, 5, 5, 4, 4, 0, 0, 1, 125},
+    .huffman_codes = {
+
+        0x01, 0x02,
+        0x03,
+        0x00, 0x04, 0x11,
+        0x05, 0x12, 0x21,
+        0x31, 0x41,
+        0x06, 0x13, 0x51, 0x61,
+        0x07, 0x22, 0x71,
+        0x14, 0x32, 0x81, 0x91, 0xa1,
+        0x08, 0x23, 0x42, 0xb1, 0xc1,
+        0x15, 0x52, 0xd1, 0xf0,
+        0x24, 0x33, 0x62, 0x72,
+
+
+        0x82,
+        0x09, 0x0A, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2A, 0x34, 0x35, 0x36,
+        0x37, 0x38, 0x39, 0x3A, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4A, 0x53, 0x54, 0x55, 0x56,
+        0x57, 0x58, 0x59, 0x5A, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68, 0x69, 0x6A, 0x73, 0x74, 0x75, 0x76,
+        0x77, 0x78, 0x79, 0x7A, 0x83, 0x84, 0x85, 0x86, 0x87, 0x88, 0x89, 0x8A, 0x92, 0x93, 0x94, 0x95,
+        0x96, 0x97, 0x98, 0x99, 0x9A, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7, 0xA8, 0xA9, 0xAA, 0xB2, 0xB3,
+        0xB4, 0xB5, 0xB6, 0xB7, 0xB8, 0xB9, 0xBA, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6, 0xC7, 0xC8, 0xC9, 0xCA,
+        0xD2, 0xD3, 0xD4, 0xD5, 0xD6, 0xD7, 0xD8, 0xD9, 0xDA, 0xE1, 0xE2, 0xE3, 0xE4, 0xE5, 0xE6, 0xE7,
+        0xE8, 0xE9, 0xEA, 0xF1, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6, 0xF7, 0xF8, 0xF9, 0xFA
+    }
+};
+//const jpeg_huffman_table_t chrom_dc_huffman_table = { 0 };
+//const jpeg_huffman_table_t chrom_ac_huffman_table = { 0 };
+
+const jpeg_quantization_table_t lum_quant_table_best =
+{
+    //.table_valid = true,
+    .pq_tq = 0x00,
+    .Q = {
+        1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1,
+
+    }
+};
 //const jpeg_quantization_table_t lum_quant_table_high;
 const jpeg_quantization_table_t lum_quant_table_medium =
 {
