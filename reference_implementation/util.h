@@ -2,6 +2,7 @@
 #define _UTIL_H
 
 #include <pam.h>
+#include <stdint.h>
 
 #define PAM_MEMBER_OFFSET(mbrname)                    \
   ((unsigned long int)(char*)&((struct pam *)0)->mbrname)

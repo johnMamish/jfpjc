@@ -5,8 +5,8 @@
 #ifndef JPEG_H
 #define JPEG_H
 
-#include <stdbool.h>
 #include <stdint.h>
+#include "util.h"
 
 typedef struct jpeg_segment
 {
@@ -33,15 +33,12 @@ typedef struct jpeg_quanitzation_table
     // this structure doesn't have a header, as one header can hold several quantization tables.
 
     // table valid marker for my own use.
-    bool table_valid;
+    //bool table_valid;
 
     // pq_tq<7:4> specify the bit-depth of samples. 0 for 8-bit, 1 for 16-bit.
     // pq_tq<3:0> specify the quantization table destination identifier.
     uint8_t pq_tq;
-    union {
-        uint8_t _8;
-        uint16_t _16;
-    } Q[64];
+    uint8_t Q[64];
 } jpeg_quantization_table_t;
 
 typedef struct frame_component_specification_parameters
@@ -51,6 +48,18 @@ typedef struct frame_component_specification_parameters
     uint8_t vertical_sampling_factor;
     uint8_t quantization_table_selector;
 } frame_component_specification_parameters_t;
+
+typedef struct scan_component_specification_parameters
+{
+    uint8_t scan_component_selector;
+
+    // Specifies one of four possible DC and AC entropy coding table destinations from which the
+    // entropy table needed for decoding of the coefficients of component Csj is retrieved. DC and
+    // AC coding table indicies are packed into one byte, with the DC index occupying the most-
+    // significant nibble.
+    uint8_t dc_ac_entropy_coding_table;
+} scan_component_specification_parameters_t;
+
 
 typedef struct jpeg_scan_header
 {
@@ -86,50 +95,56 @@ typedef struct jpeg_frame_header
     frame_component_specification_parameters_t* csps;
 } jpeg_frame_header_t;
 
-/**
- * Container for a jpeg image.
- *
- * In order to make porting to an embedded system simpler, this software only supports a single
- * scan.
- */
-typedef struct jpeg_image
-{
-    // An array holding misc. segments.
-    uint32_t num_misc_segments;
-    jpeg_generic_segment_t** misc_segments;
-
-    // no jpeg can have more than 4 huffman tables for either AC or DC.
-    jpeg_huffman_table_t dc_huffman_tables[4];
-    jpeg_huffman_table_t ac_huffman_tables[4];
-    jpeg_quantization_table_t jpeg_quantization_tables[4];
-
-    jpeg_frame_header_t frame_header;
-
-    // This software only supports a single scan
-    jpeg_scan_t scan;
-} jpeg_image_t;
 
 typedef struct dct_block
 {
-    int16_t values[64];
+    int values[64];
 } dct_block_t;
 
 typedef struct jpeg_dct_component
 {
     uint32_t num_blocks;
     dct_block_t* blocks;
+
+    // for now, only values of 1 and 1 are supported?
+    int H_sample_factor;
+    int V_sample_factor;
+
+    int quant_table_selector;
+    int entropy_coding_table;
+
+    // in MCUs. Not strictly necessary for impl, but may help with validation
+    int mcu_width;
+    int mcu_height;
 } jpeg_dct_component_t;
 
 typedef struct uncoded_jpeg_scan
 {
     // for now, only 1 is supported.
     int num_components;
-    huffman_decoded_jpeg_component_t components[4];
+    jpeg_dct_component_t components[4];
 
-    // for now, only values of 1 and 1 are supported.
-    int H_max;
-    int V_max;
+    // in pixels
+    int width;
+    int height;
 } uncoded_jpeg_scan_t;
+
+typedef struct component_params
+{
+    int H_sample_factor;
+    int V_sample_factor;
+
+    int quant_table_selector;
+    int entropy_coding_table;
+} component_params_t;
+
+/**
+ *
+ */
+uncoded_jpeg_scan_t* uncoded_jpeg_scan_create(const image_t* image,
+                                              const component_params_t** params,
+                                              int ncomponents,
+                                              const jpeg_quantization_table_t** tables);
 
 
 /**
@@ -137,17 +152,36 @@ typedef struct uncoded_jpeg_scan
  * and quantization tables. The given huffman and quantization tables will be included in the output
  * bytestream.
  *
- * huffman_tables[0] are used for the first component, huffman_tables[1] are used for all other
- * components.
- *
- * The number of quanitzation tables is expected to be the same as the number of components.
+ * {huffman,quant}_tables[0] are used for the first component, {huffman,quant}_tables[1] are used
+ * for all other components. Unused spots for huffman and quant tables should be NULL.
  *
  * returns the length of the bytestream.
  */
 int jpeg_compress(const uncoded_jpeg_scan_t* jpeg,
-                  const jpeg_huffman_table_t dc_huffman_tables[2],
-                  const jpeg_huffman_table_t ac_huffman_tables[2],
-                  const jpeg_quantization_table_t* quant_tables,
+                  const jpeg_huffman_table_t* dc_huffman_tables[2],
+                  const jpeg_huffman_table_t* ac_huffman_tables[2],
+                  const jpeg_quantization_table_t* quant_tables[2],
                   uint8_t** dest);
+
+
+#if 0
+const extern jmcujc_huffman_table_t lum_dc_huffman_table;
+const extern jmcujc_huffman_table_t lum_ac_huffman_table;
+const extern jmcujc_huffman_table_t chrom_dc_huffman_table;
+const extern jmcujc_huffman_table_t chrom_ac_huffman_table;
+#endif
+
+//const extern jpeg_quantization_table_t lum_quant_table_best;
+//const extern jpeg_quantization_table_t lum_quant_table_high;
+const extern jpeg_quantization_table_t lum_quant_table_medium;
+//const extern jpeg_quantization_table_t lum_quant_table_low;
+//const extern jpeg_quantization_table_t lum_quant_table_lowest;
+
+//const extern jpeg_quantization_table_t chrom_quant_table_best;
+//const extern jpeg_quantization_table_t chrom_quant_table_high;
+const extern jpeg_quantization_table_t chrom_quant_table_medium;
+//const extern jpeg_quantization_table_t chrom_quant_table_low;
+//const extern jpeg_quantization_table_t chrom_quant_table_lowest;
+
 
 #endif

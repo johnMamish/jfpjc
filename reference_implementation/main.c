@@ -7,6 +7,7 @@
 #include <stdbool.h>
 
 #include "util.h"
+#include "jpeg.h"
 
 typedef struct image_dct
 {
@@ -68,12 +69,27 @@ int main(int argc, char** argv)
 
     image_t* image = image_create_from_pam(argv[1], argv[0]);
     image_level_shift(image);
-    image_dct_t* dcts = image_dct_create(image);
 
+    if (((image->width % 8) != 0) || ((image->height % 8) != 0)) {
+        printf("This program only works on images with width and height that are multiples of 8.\n");
+        printf("%s has dimensions %ix%i\n", argv[1], image->width, image->height);
+        return -1;
+    }
+
+    const component_params_t lum_params = {1, 1, 0, 0};
+    //const component_params_t chrom_params  {2, 1, 1, 1};
+    const component_params_t* component_params[] = { &lum_params };
+
+    const jpeg_quantization_table_t* quant_tables[] = { &chrom_quant_table_medium };
+
+    uint8_t* jpeg_out;
+    uncoded_jpeg_scan_t* scan = uncoded_jpeg_scan_create(image, component_params, 1, quant_tables);
     printf("MCU (X, Y) (0, 3)\n");
-    image_dct_printblock(dcts->blocks[3 * dcts->width + 0]);
+    image_dct_printblock(scan->components[0].blocks[3 * scan->components[0].mcu_width + 0].values);
     printf("MCU (X, Y) (1, 3)\n");
-    image_dct_printblock(dcts->blocks[3 * dcts->width + 1]);
+    image_dct_printblock(scan->components[0].blocks[3 * scan->components[0].mcu_width + 1].values);
+
+    //int jpeg_len = jpeg_compress(scan, dc, ac, quant, &jpeg_out);
 
     image_destroy(image);
     return 0;
