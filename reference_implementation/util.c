@@ -313,36 +313,28 @@ void loeffler_fdct_vertical_inplace(float* data_in, float* data_out)
     data_out[1 * 8] = stages[2][4] + stages[2][7];
 }
 
-
-/**
- * Using the Loeffler et al DCT-8 means that we will require a few scale factors to be applied to
- * our 8x8 output block. This function does so.
- *
- * The required scale factors aren't exactly the same as those specified A.3.3 of T.81. Instead,
- */
-void loeffler_scale_dct_8x8(float* data_in)
+void loeffler_fdct_8x8_inplace(float* data)
 {
-    //const float sf[] =
-}
-
-/*
-void mcu_fdct_fast_8x8(int* data_in, int* data_out)
-{
-    float data_f[64];
+    static float data_f[64];
     for (int i = 0; i < 64; i++)
-        data_f[i] = (float)data_in[i];
+        data_f[i] = (float)data[i];
 
     // horizontal
     for (int i = 0; i < 8; i++) {
-        fdct_fast_8(&data_f[i * 8], &data_f[i * 8]);
+        loeffler_fdct_horizontal_inplace(&data_f[i * 8], &data_f[i * 8]);
     }
 
     // vertical
     for (int i = 0; i < 8; i++) {
-        fdct_fast_8(&data_f[i * 8], &data_f[i * 8]);
+        loeffler_fdct_vertical_inplace(&data_f[i], &data_f[i]);
+    }
+
+    for (int i = 0; i < 64; i++) {
+        //data[i] = (int)round(data_f[i]);
+        data[i] = data_f[i];
     }
 }
-*/
+
 #if 0
 static void fdct_8_fast(int* data_in, int* data_out)
 {

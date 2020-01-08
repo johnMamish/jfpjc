@@ -81,6 +81,7 @@ void mcu_fdct_fixedpoint(int* data_in, int* data_out);
 
 void loeffler_fdct_horizontal_inplace(float* data_in, float* data_out);
 void loeffler_fdct_vertical_inplace(float* data_in, float* data_out);
+void loeffler_fdct_8x8_inplace(float* data);
 
 /**
  *

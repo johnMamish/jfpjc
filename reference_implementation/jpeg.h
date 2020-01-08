@@ -170,7 +170,7 @@ const extern jpeg_huffman_table_t chrom_dc_huffman_table;
 const extern jpeg_huffman_table_t chrom_ac_huffman_table;
 
 const extern jpeg_quantization_table_t lum_quant_table_best;
-//const extern jpeg_quantization_table_t lum_quant_table_high;
+const extern jpeg_quantization_table_t lum_quant_table_high;
 const extern jpeg_quantization_table_t lum_quant_table_medium;
 //const extern jpeg_quantization_table_t lum_quant_table_low;
 //const extern jpeg_quantization_table_t lum_quant_table_lowest;

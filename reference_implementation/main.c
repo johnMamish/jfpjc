@@ -137,24 +137,31 @@ void do_fdct_tests()
     float loeffler[64];
     memcpy(loeffler, fdct_8x8_test, sizeof(float) * 64);
 
+    loeffler_fdct_8x8_inplace(loeffler);
+
     // horizontal
-    for (int i = 0; i < 8; i++)
+    /*for (int i = 0; i < 8; i++)
         loeffler_fdct_horizontal_inplace(&loeffler[8 * i], &loeffler[8 * i]);
     for (int i = 0; i < 8; i++)
-        loeffler_fdct_vertical_inplace(&loeffler[i], &loeffler[i]);
+    loeffler_fdct_vertical_inplace(&loeffler[i], &loeffler[i]);*/
 
-        // print results
+    // print results
     for (int i = 0; i < 64; i++) {
         printf("%+3.6f ", loeffler[i]);
         if ((i % 8) == 7) {
             printf("\n");
         }
     }
+    for (int i = 0; i < 64; i++) {
+        if (fabs(loeffler[i] - regular[i]) > 0.001) {
+            printf("error at index (%i, %i)\n", i % 8, i / 8);
+        }
+    }
 }
 
 int main(int argc, char** argv)
 {
-    do_fdct_tests();
+    //do_fdct_tests();
 
     if (argc != 3) {
         printf("Usage: %s <image name> <output file name>\r\n", argv[0]);
@@ -174,7 +181,7 @@ int main(int argc, char** argv)
     //const component_params_t chrom_params  {2, 1, 1, 1};
     const component_params_t* component_params[] = { &lum_params };
 
-    const jpeg_quantization_table_t* quant_tables[] = { &lum_quant_table_medium, NULL, NULL, NULL };
+    const jpeg_quantization_table_t* quant_tables[] = { &lum_quant_table_high, NULL, NULL, NULL };
 
     uint8_t* jpeg_out;
     uncoded_jpeg_scan_t* scan = uncoded_jpeg_scan_create(image, component_params, 1, quant_tables);

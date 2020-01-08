@@ -1,5 +1,6 @@
 #include "./jpeg.h"
 #include "bit_packer.h"
+#include <math.h>
 #include <string.h>
 
 // jpeg util functions
@@ -93,7 +94,13 @@ static void component_take_dct(jpeg_dct_component_t* component,
 
             // do DCT
             int mcuidx = (y * (image->width / MCU_width_pixels)) + x;
-            mcu_fdct_floats(data_in, component->blocks[mcuidx].values);
+            float temp[64];
+            for (int i = 0; i < 64; i++)
+                temp[i] = data_in[i];
+            loeffler_fdct_8x8_inplace(temp);
+            for (int i = 0; i < 64; i++)
+                component->blocks[mcuidx].values[i] = (int)round(temp[i]);
+            //mcu_fdct_floats(data_in, component->blocks[mcuidx].values);
             //mcu_fdct_fixedpoint(data_in, component->blocks[mcuidx].values);
         }
     }
