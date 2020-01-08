@@ -475,7 +475,8 @@ int jpeg_compress(const uncoded_jpeg_scan_t* scan,
         uint8_t hi_vi = ((scan->components[i].H_sample_factor << 4) |
                          scan->components[i].V_sample_factor);
         bytearray_add_bytes(ba, &hi_vi, 1);
-        bytearray_add_bytes(ba, (uint8_t[]) {scan->components[i].entropy_coding_table}, 1);
+        //bytearray_add_bytes(ba, (uint8_t[]) {scan->components[i].entropy_coding_table}, 1);
+        bytearray_add_bytes(ba, (uint8_t[]) {scan->components[i].quant_table_selector}, 1);
     }
 
     // ======= SOS =======
@@ -485,7 +486,8 @@ int jpeg_compress(const uncoded_jpeg_scan_t* scan,
     bytearray_add_bytes(ba, (uint8_t[]){ scan->num_components }, 1);
     for (int i = 0; i < scan->num_components; i++) {
         bytearray_add_bytes(ba, (uint8_t[]){ i }, 1);
-        bytearray_add_bytes(ba, (uint8_t[]){ scan->components[i].entropy_coding_table }, 1);
+        uint8_t ect_sel = scan->components[i].entropy_coding_table | (scan->components[i].entropy_coding_table << 4);
+        bytearray_add_bytes(ba, (uint8_t[]){ ect_sel }, 1);
     }
     // start and end of spectral selection. constant for sequential mode.
     bytearray_add_bytes(ba, (uint8_t[]){ 0, 63 }, 2);
@@ -583,7 +585,7 @@ const jpeg_huffman_table_t lum_ac_huffman_table =
 const jpeg_huffman_table_t chrom_dc_huffman_table =
 {
     .header = { .segment_marker = 0xc4, .Ls = 0x1f },
-    .tc_td  = 0x00,
+    .tc_td  = 0x01,
     .number_of_codes_with_length = { 0, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0 },
 
     .huffman_codes = {
@@ -609,7 +611,7 @@ const jpeg_huffman_table_t chrom_dc_huffman_table =
 const jpeg_huffman_table_t chrom_ac_huffman_table =
 {
     .header = { .segment_marker = 0xc4, .Ls = 0xb5 },
-    .tc_td  = 0x10,
+    .tc_td  = 0x11,
     .number_of_codes_with_length = { 0, 2, 1, 2, 4, 4, 3, 4, 7, 5, 4, 4, 0, 1, 2, 119},
     .huffman_codes = {
 

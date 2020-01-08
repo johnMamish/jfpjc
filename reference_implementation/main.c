@@ -177,15 +177,16 @@ int main(int argc, char** argv)
         return -1;
     }
 
-    const component_params_t lum_params = {1, 1, 0, 0};
-    //const component_params_t chrom_params  {2, 1, 1, 1};
-    const component_params_t* component_params[] = { &lum_params };
+    const component_params_t lum_params = {4, 1, 0, 0};
+    const component_params_t chrom_params = {1, 1, 1, 1};
+    const component_params_t* component_params[] = { &lum_params, &chrom_params, &chrom_params };
 
-    const jpeg_quantization_table_t* quant_tables[] = { &lum_quant_table_high, NULL, NULL, NULL };
+    const jpeg_quantization_table_t* quant_tables[] = { &lum_quant_table_high, &chrom_quant_table_medium, NULL, NULL };
 
     uint8_t* jpeg_out;
-    uncoded_jpeg_scan_t* scan = uncoded_jpeg_scan_create(image, component_params, 1, quant_tables);
-    //uncoded_jpeg_scan_t* scan = uncoded_jpeg_scan_create(image, component_params, 3, quant_tables);
+    //uncoded_jpeg_scan_t* scan = uncoded_jpeg_scan_create(image, component_params, 1, quant_tables);
+    image_jfif_RGB_to_YCbCr(image);
+    uncoded_jpeg_scan_t* scan = uncoded_jpeg_scan_create(image, component_params, 3, quant_tables);
 
     for (int x = 0; x < 0; x++) {
         printf("MCU (X, Y) (%i, 3) DC diff = %i\n", x,
@@ -196,8 +197,8 @@ int main(int argc, char** argv)
         //image_dct_printblock(scan->components[0].blocks[3 * scan->components[0].mcu_width + x].values);
     }
 
-    const jpeg_huffman_table_t* dc_huffs[] = { &lum_dc_huffman_table, NULL };
-    const jpeg_huffman_table_t* ac_huffs[] = { &lum_ac_huffman_table, NULL };
+    const jpeg_huffman_table_t* dc_huffs[] = { &lum_dc_huffman_table, &chrom_dc_huffman_table };
+    const jpeg_huffman_table_t* ac_huffs[] = { &lum_ac_huffman_table, &chrom_ac_huffman_table };
 
     int jpeg_len = jpeg_compress(scan, dc_huffs, ac_huffs, quant_tables, &jpeg_out);
 

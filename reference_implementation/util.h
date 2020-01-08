@@ -47,6 +47,11 @@ image_t* image_create_from_pam(const char* filepath, char* argv0);
 void image_destroy(image_t* image);
 
 /**
+ * Should be called BEFORE image_level_shift().
+ */
+void image_jfif_RGB_to_YCbCr(image_t* image);
+
+/**
  * level-shifts a grayscale image so that its values are signed and centered about 0.
  */
 void image_level_shift(image_t* im);

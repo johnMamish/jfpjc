@@ -115,6 +115,21 @@ void image_destroy(image_t* image)
     free(image);
 }
 
+void image_jfif_RGB_to_YCbCr(image_t* im)
+{
+    for (int y = 0; y < im->height; y++) {
+        for (int x = 0; x < im->width; x++) {
+            int idx = y * im->width + x;
+
+            int temp[3];
+            memcpy(temp, im->components[idx], 3 * sizeof(int));
+            im->components[idx][0] = ((76 * temp[0]) + (150 * temp[1]) + (29 * temp[2])) / 256;
+            im->components[idx][1] = ((-43 * temp[0]) + (-85 * temp[1]) + (128 * temp[2]) + 128) / 256;
+            im->components[idx][2] = ((128 * temp[0]) + (-107* temp[1]) + (-21 * temp[2]) + 128) / 256;
+        }
+    }
+}
+
 void image_level_shift(image_t* im)
 {
     for (int y = 0; y < im->height; y++) {
