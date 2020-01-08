@@ -176,11 +176,184 @@ void mcu_fdct_floats(int* data_in, int* data_out)
 
 
             int data_out_idx = j * 8 + i;
-            data_out[data_out_idx] = (int)(data_out_f[j][i] * Cu * Cv);
+            data_out[data_out_idx] = (int)round(data_out_f[j][i] * Cu * Cv);
         }
     }
 }
 
+
+/**
+ * data_in is 24q7, but should be treated as if it's just q7.
+ * data_out is in 24q7, but should be treated as if it's just 8q7.
+ */
+#if 0
+void mcu_fdct_fixedpoint(int* data_in, int* data_out)
+{
+    memset(data_out, 0, sizeof(data_out));
+
+    // input data is  output data is in 16q15
+    for (int v = 0; v < 8; v++) {
+        for (int u = 0; u < 8; u++) {
+            for (int y = 0; y < 8; y++) {
+                for (int x = 0; x < 8; x++) {
+                    int data_in_idx = y * 8 + x;
+                    float coeff = (((int)floor(128.f * cos(((2.f * (float)x + 1.f) * u * PI) / 16))) *
+                                   ((int)floor(128.f * cos(((2.f * (float)y + 1.f) * v * PI) / 16)))) / 128;
+                    data_out[v * 8 + u] += ((data_in[data_in_idx]) * coeff) / 128;
+                }
+            }
+            data_out[v * 8 + u] /= 4.f;
+        }
+    }
+
+    for (int j = 0; j < 8; j++) {
+        for (int i = 0; i < 8; i++) {
+            // for u, v = 0, component is scaled by (1 / sqrt(2))
+            float Cv = (j == 0) ? (int)floor(128.f * (1 / sqrt(2))) : 1;
+            float Cu = (i == 0) ? (int)floor(128.f * (1 / sqrt(2))) : 1;
+
+            int data_out_idx = j * 8 + i;
+            data_out[data_out_idx] = (data_out[j][i] * Cu * Cv) / (128 * 128);
+        }
+    }
+}
+#endif
+
+
+/**
+ * According to Loeffler et al, 1989
+ *
+ * NB: there's an error in the Stage 3 sqrt(2)c1 block. It should be sqrt(2)c6
+ */
+void loeffler_fdct_horizontal_inplace(float* data_in, float* data_out)
+{
+    const float N = 8.;
+    float stages[4][8];
+
+    stages[0][0] = (data_in[0] + data_in[7]);
+    stages[0][1] = (data_in[1] + data_in[6]);
+    stages[0][2] = (data_in[2] + data_in[5]);
+    stages[0][3] = (data_in[3] + data_in[4]);
+    stages[0][4] = (data_in[3] - data_in[4]);
+    stages[0][5] = (data_in[2] - data_in[5]);
+    stages[0][6] = (data_in[1] - data_in[6]);
+    stages[0][7] = (data_in[0] - data_in[7]);
+
+    const float block_1c3_cos = 0.8314696123 * 0.35355339059;     // k * cos((n * pi) / 16) for 1c3
+    const float block_1c3_sin = 0.5555702330 * 0.35355339059;     // k * sin((n * pi) / 16) for 1c3
+    const float block_1c1_cos = 0.9807852804 * 0.35355339059;     // k * cos((n * pi) / 16) for 1c1
+    const float block_1c1_sin = 0.1950903220 * 0.35355339059;     // k * sin((n * pi) / 16) for 1c1
+    stages[1][0] = stages[0][0] + stages[0][3];
+    stages[1][1] = stages[0][1] + stages[0][2];
+    stages[1][2] = stages[0][1] - stages[0][2];
+    stages[1][3] = stages[0][0] - stages[0][3];
+    stages[1][4] =  stages[0][4] * block_1c3_cos + stages[0][7] * block_1c3_sin;      // 1c3
+    stages[1][7] = -stages[0][4] * block_1c3_sin + stages[0][7] * block_1c3_cos;
+    stages[1][5] =  stages[0][5] * block_1c1_cos + stages[0][6] * block_1c1_sin;      // 1c1
+    stages[1][6] = -stages[0][5] * block_1c1_sin + stages[0][6] * block_1c1_cos;
+
+    const float block_r2c1_cos = 0.54119610014 * 0.35355339059;   // k * cos((n * pi) / 16) for sqrt(2)c1
+    const float block_r2c1_sin = 1.30656296488 * 0.35355339059;   // k * sin((n * pi) / 16) for sqrt(2)c1
+    data_out[0]  = (stages[1][0] + stages[1][1]) * 0.25 * 1.41421356237;
+    data_out[4]  = (stages[1][0] - stages[1][1]) * 0.35355339059;
+    data_out[2]  =  stages[1][2] * block_r2c1_cos + stages[1][3] * block_r2c1_sin;   // sqrt2 c6
+    data_out[6]  = -stages[1][2] * block_r2c1_sin + stages[1][3] * block_r2c1_cos;
+    stages[2][4] = stages[1][4] + stages[1][6];
+    stages[2][5] = -stages[1][5] + stages[1][7];
+    stages[2][6] = stages[1][4] - stages[1][6];
+    stages[2][7] = stages[1][5] + stages[1][7];
+
+    data_out[7] = -stages[2][4] + stages[2][7];
+    data_out[3] = 1.41421356237f * stages[2][5];
+    data_out[5] = 1.41421356237f * stages[2][6];
+    data_out[1] = stages[2][4] + stages[2][7];
+}
+
+void loeffler_fdct_vertical_inplace(float* data_in, float* data_out)
+{
+    const float N = 8.;
+    float stages[4][8];
+
+    stages[0][0] = (data_in[0 * 8] + data_in[7 * 8]);
+    stages[0][1] = (data_in[1 * 8] + data_in[6 * 8]);
+    stages[0][2] = (data_in[2 * 8] + data_in[5 * 8]);
+    stages[0][3] = (data_in[3 * 8] + data_in[4 * 8]);
+    stages[0][4] = (data_in[3 * 8] - data_in[4 * 8]);
+    stages[0][5] = (data_in[2 * 8] - data_in[5 * 8]);
+    stages[0][6] = (data_in[1 * 8] - data_in[6 * 8]);
+    stages[0][7] = (data_in[0 * 8] - data_in[7 * 8]);
+
+    const float block_1c3_cos = 0.8314696123 * 0.35355339059;     // k * cos((n * pi) / 16) for 1c3
+    const float block_1c3_sin = 0.5555702330 * 0.35355339059;     // k * sin((n * pi) / 16) for 1c3
+    const float block_1c1_cos = 0.9807852804 * 0.35355339059;     // k * cos((n * pi) / 16) for 1c1
+    const float block_1c1_sin = 0.1950903220 * 0.35355339059;     // k * sin((n * pi) / 16) for 1c1
+    stages[1][0] = stages[0][0] + stages[0][3];
+    stages[1][1] = stages[0][1] + stages[0][2];
+    stages[1][2] = stages[0][1] - stages[0][2];
+    stages[1][3] = stages[0][0] - stages[0][3];
+    stages[1][4] =  stages[0][4] * block_1c3_cos + stages[0][7] * block_1c3_sin;      // 1c3
+    stages[1][7] = -stages[0][4] * block_1c3_sin + stages[0][7] * block_1c3_cos;
+    stages[1][5] =  stages[0][5] * block_1c1_cos + stages[0][6] * block_1c1_sin;      // 1c1
+    stages[1][6] = -stages[0][5] * block_1c1_sin + stages[0][6] * block_1c1_cos;
+
+    const float block_r2c1_cos = 0.54119610014 * 0.35355339059;   // k * cos((n * pi) / 16) for sqrt(2)c1
+    const float block_r2c1_sin = 1.30656296488 * 0.35355339059;   // k * sin((n * pi) / 16) for sqrt(2)c1
+    data_out[0 * 8]  = (stages[1][0] + stages[1][1]) * 0.25 * 1.41421356237;
+    data_out[4 * 8]  = (stages[1][0] - stages[1][1]) * 0.35355339059;
+    data_out[2 * 8]  =  stages[1][2] * block_r2c1_cos + stages[1][3] * block_r2c1_sin;   // sqrt2 c6
+    data_out[6 * 8]  = -stages[1][2] * block_r2c1_sin + stages[1][3] * block_r2c1_cos;
+    stages[2][4] = stages[1][4] + stages[1][6];
+    stages[2][5] = -stages[1][5] + stages[1][7];
+    stages[2][6] = stages[1][4] - stages[1][6];
+    stages[2][7] = stages[1][5] + stages[1][7];
+
+    data_out[7 * 8] = -stages[2][4] + stages[2][7];
+    data_out[3 * 8] = 1.41421356237f * stages[2][5];
+    data_out[5 * 8] = 1.41421356237f * stages[2][6];
+    data_out[1 * 8] = stages[2][4] + stages[2][7];
+}
+
+
+/**
+ * Using the Loeffler et al DCT-8 means that we will require a few scale factors to be applied to
+ * our 8x8 output block. This function does so.
+ *
+ * The required scale factors aren't exactly the same as those specified A.3.3 of T.81. Instead,
+ */
+void loeffler_scale_dct_8x8(float* data_in)
+{
+    //const float sf[] =
+}
+
+/*
+void mcu_fdct_fast_8x8(int* data_in, int* data_out)
+{
+    float data_f[64];
+    for (int i = 0; i < 64; i++)
+        data_f[i] = (float)data_in[i];
+
+    // horizontal
+    for (int i = 0; i < 8; i++) {
+        fdct_fast_8(&data_f[i * 8], &data_f[i * 8]);
+    }
+
+    // vertical
+    for (int i = 0; i < 8; i++) {
+        fdct_fast_8(&data_f[i * 8], &data_f[i * 8]);
+    }
+}
+*/
+#if 0
+static void fdct_8_fast(int* data_in, int* data_out)
+{
+
+}
+
+void mcu_fdct_fast(int* data_in, int* data_out)
+{
+
+}
+#endif
 
 void jpeg_zigzag_data_inplace(int* data)
 {

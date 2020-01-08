@@ -2,9 +2,11 @@
  * Copyright 2020, John Mamish
  */
 
+#include <math.h>
 #include <pam.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <string.h>
 
 #include "util.h"
 #include "jpeg.h"
@@ -60,8 +62,100 @@ void image_dct_printblock(int* block)
     }
 }
 
+static void fdct_8(float* data_in, float* data_out)
+{
+    float temp[8];
+    for (int i = 0; i < 8; i++) {
+        temp[i] = 0.f;
+        for (int j = 0; j < 8; j++) {
+            float coeff = cos((2.f * PI * (float)(2 * j + 1) * (float)i) / (4 * 8));
+            temp[i] += coeff * data_in[j];
+        }
+    }
+
+    for (int i = 0; i < 8; i++) {
+        data_out[i] = temp[i] / 2.f;
+    }
+    data_out[0] /= 1.41421356237f;
+}
+
+float fdct_8x8_test[] = {
+    0,  0,  0,  0,  0,  0,  0,  0,
+    0, -1, -1, -1, -1, -1, -1,  1,
+    0, -1,  2,  2,  2,  2, -1,  2,
+    0, -1,  2, -3, -3,  2, -1,  3,
+    0, -1,  2, -3, -3,  2, -1,  4,
+    0, -1,  2,  2,  2,  2, -1,  5,
+    0, -1, -1, -1, -1, -1, -1,  6,
+    0,  0,  0,  0,  0,  0,  0,  9
+};
+
+void do_fdct_tests()
+{
+#if 0
+    float dcttest[8] = {1, 2, -3, -4, 5, 6, -7, -8};
+    float dctout[8] = { 0 };
+    loeffler_fdct_horizontal_inplace(dcttest, dcttest);
+    //dctout[0] /= 1.41421356237f;
+    for (int i = 0; i < 8; i++) {
+        //dctout[i] /= 2.f * 1.41421356237f;
+        printf("%3.5f ", dcttest[i]);
+    }
+    printf("\r\n");
+#endif
+
+
+    float regular[64];
+    memcpy(regular, fdct_8x8_test, sizeof(float) * 64);
+
+    // do horizontal
+    for (int i = 0; i < 8; i++) {
+        fdct_8(&regular[8 * i], &regular[8 * i]);
+    }
+
+    // do vertical
+    for (int i = 0; i < 8; i++) {
+        float temp[8];
+        for (int j = 0; j < 8; j++) {
+            temp[j] = regular[j * 8 + i];
+        }
+        fdct_8(temp, temp);
+        for (int j = 0; j < 8; j++) {
+            regular[j * 8 + i] = temp[j];
+        }
+    }
+
+    // print results
+    for (int i = 0; i < 64; i++) {
+        printf("%+3.6f ", regular[i]);
+        if ((i % 8) == 7) {
+            printf("\n");
+        }
+    }
+    printf("\n");
+
+    float loeffler[64];
+    memcpy(loeffler, fdct_8x8_test, sizeof(float) * 64);
+
+    // horizontal
+    for (int i = 0; i < 8; i++)
+        loeffler_fdct_horizontal_inplace(&loeffler[8 * i], &loeffler[8 * i]);
+    for (int i = 0; i < 8; i++)
+        loeffler_fdct_vertical_inplace(&loeffler[i], &loeffler[i]);
+
+        // print results
+    for (int i = 0; i < 64; i++) {
+        printf("%+3.6f ", loeffler[i]);
+        if ((i % 8) == 7) {
+            printf("\n");
+        }
+    }
+}
+
 int main(int argc, char** argv)
 {
+    do_fdct_tests();
+
     if (argc != 3) {
         printf("Usage: %s <image name> <output file name>\r\n", argv[0]);
         return -1;
@@ -84,6 +178,7 @@ int main(int argc, char** argv)
 
     uint8_t* jpeg_out;
     uncoded_jpeg_scan_t* scan = uncoded_jpeg_scan_create(image, component_params, 1, quant_tables);
+    //uncoded_jpeg_scan_t* scan = uncoded_jpeg_scan_create(image, component_params, 3, quant_tables);
 
     for (int x = 0; x < 0; x++) {
         printf("MCU (X, Y) (%i, 3) DC diff = %i\n", x,

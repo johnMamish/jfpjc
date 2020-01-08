@@ -94,6 +94,7 @@ static void component_take_dct(jpeg_dct_component_t* component,
             // do DCT
             int mcuidx = (y * (image->width / MCU_width_pixels)) + x;
             mcu_fdct_floats(data_in, component->blocks[mcuidx].values);
+            //mcu_fdct_fixedpoint(data_in, component->blocks[mcuidx].values);
         }
     }
 }
@@ -590,8 +591,8 @@ const jpeg_quantization_table_t lum_quant_table_best =
 
     }
 };
-//const jpeg_quantization_table_t lum_quant_table_high;
-const jpeg_quantization_table_t lum_quant_table_medium =
+
+const jpeg_quantization_table_t lum_quant_table_high =
 {
     //.table_valid = true,
     .pq_tq = 0x00,
@@ -606,6 +607,23 @@ const jpeg_quantization_table_t lum_quant_table_medium =
         12, 15,  15,  16, 18, 16, 16, 16
     }
 };
+
+const jpeg_quantization_table_t lum_quant_table_medium =
+{
+    //.table_valid = true,
+    .pq_tq = 0x00,
+    .Q = {
+        3 * 2,   2 * 2,   2 * 2,   3 * 2,  4 * 2,  6 * 2,  8 * 2, 10 * 2,
+        2 * 2,   2 * 2,   2 * 2,   3 * 2,  4 * 2,  9 * 2, 10 * 2,  9 * 2,
+        2 * 2,   2 * 2,   3 * 2,   4 * 2,  6 * 2,  9 * 2, 11 * 2,  9 * 2,
+        2 * 2,   3 * 2,   4 * 2,   5 * 2,  8 * 2, 14 * 2, 13 * 2, 10 * 2,
+        3 * 2,   4 * 2,   6 * 2,   9 * 2, 11 * 2, 17 * 2, 16 * 2, 12 * 2,
+        4 * 2,   6 * 2,   9 * 2,  10 * 2, 13 * 2, 17 * 2, 18 * 2, 15 * 2,
+        8 * 2,  10 * 2,  12 * 2,  14 * 2, 16 * 2, 19 * 2, 19 * 2, 16 * 2,
+        12 * 2, 15 * 2,  15 * 2,  16 * 2, 18 * 2, 16 * 2, 16 * 2, 16 * 2
+    }
+};
+
 //const jpeg_quantization_table_t lum_quant_table_low;
 //const jpeg_quantization_table_t lum_quant_table_lowest;
 
