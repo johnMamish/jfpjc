@@ -177,9 +177,10 @@ int main(int argc, char** argv)
         return -1;
     }
 
-    const component_params_t lum_params = {4, 1, 0, 0};
-    const component_params_t chrom_params = {1, 1, 1, 1};
-    const component_params_t* component_params[] = { &lum_params, &chrom_params, &chrom_params };
+    const component_params_t lum_params = {2, 2, 0, 0};
+    const component_params_t chrom_params1 = {1, 1, 1, 1};
+    const component_params_t chrom_params2 = {1, 1, 1, 1};
+    const component_params_t* component_params[] = { &lum_params, &chrom_params1, &chrom_params2 };
 
     const jpeg_quantization_table_t* quant_tables[] = { &lum_quant_table_high, &chrom_quant_table_medium, NULL, NULL };
 
