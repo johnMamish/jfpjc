@@ -33,9 +33,12 @@ typedef struct jmcujc_subsampling_factors
 struct jmcujc_component
 {
     // points to data to be directly encoded into DCT MCU blocks
+    // NB: this data is arranged in 8x8 MCUs, each of which is in row-major order. For instance,
+    // the first element of MCU 0 starts at [0], MCU 1 starts at [64], MCU N starts at [64 * N].
     float* samples;
 
-    // Width and height of this component in samples (not pixels).
+    // Width and height of this component in samples (not pixels). Both of these are assumed to be
+    // multiples of 8.
     int width;
     int height;
 

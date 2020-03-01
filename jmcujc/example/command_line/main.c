@@ -43,6 +43,17 @@ static jmcujc_component_t* jmcujc_component_create(int width, int height)
 }
 #endif
 
+static void print_component(const jmcujc_component_t* c)
+{
+    for (int idx = 0; idx < (c->width * c->height); idx++) {
+        printf("% 3i ", ((int)c->samples[idx]) + 128);
+        if ((idx & 0x07) == 0x07)
+            printf("\n");
+        if ((idx & 63) == 63)
+            printf("\n");
+    }
+}
+
 int main(int argc, char** argv)
 {
     if (argc != 3) {
@@ -69,6 +80,7 @@ int main(int argc, char** argv)
     bw_params.height = image_slice->height;
     jmcujc_write_headers(&component, 1, &bw_params, data);
 
+    print_component(&component);
 
     FILE* outfile = fopen(argv[2], "wb");
     if (outfile == NULL) {

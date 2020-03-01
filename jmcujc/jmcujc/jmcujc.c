@@ -4,6 +4,14 @@
 #include "jmcujc.h"
 #include "jmcujc_utils.h"
 
+/**
+ * This function takes a jpeg component and overwrites the data in it with its DCT.
+ */
+static void jpeg_component_DCT(jmcujc_component_t* component)
+{
+
+}
+
 
 static void jpeg_write_huffman_table(const jmcujc_huffman_table_t* table, jmcujc_bytearray_t* ba)
 {
@@ -97,8 +105,22 @@ int jmcujc_write_headers(const jmcujc_component_t* components,
     // doing sequential, not progressive, this stays at 0.
     bytearray_add_bytes(ba, (uint8_t[]){ 0 }, 1);
 
+
+
     return 0;
 }
+
+int jmcujc_compress_components_to_bytestream(const jmcujc_component_t* components,
+                                             const int ncomponents,
+                                             const jmcujc_jpeg_params_t* params,
+                                             jmcujc_bytearray_t* bytestream)
+{
+    for (int i = 0; i < ncomponents; i++) {
+
+
+    }
+}
+
 
 const jmcujc_huffman_table_t lum_dc_huffman_table =
 {
