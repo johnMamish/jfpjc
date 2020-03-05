@@ -14,7 +14,7 @@ SRC+= jmcujc_utils.c
 VPATH+= $(JMCUJC_DIR)
 
 CFLAGS = -O0
-CFLAGS+= -g -std=c99 -Wall
+CFLAGS+= -g -std=c99 -Wall -Wno-unused-function
 CFLAGS+= $(INCLUDES)
 
 TARGET= jfpjc_c

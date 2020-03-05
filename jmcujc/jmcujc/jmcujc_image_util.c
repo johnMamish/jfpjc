@@ -27,8 +27,8 @@ void jmcujc_component_initialize_from_source_image_slice(jmcujc_component_t* com
             for (int block_y = 0; block_y < 8; block_y++) {
                 for (int block_x = 0; block_x < 8; block_x++) {
                     const int src_idx = (((MCU_y * 8 * 8 * width_in_MCUs) + (MCU_x * 8)) +
-                                         ((block_y * component->width) + block_x));
-                    printf("%i -> %i\n", src_idx, idx);
+                                         (((block_y + offset) * component->width) + block_x));
+                    //printf("%i -> %i\n", src_idx, idx);
                     component->samples[idx++] = ((int)source->pixels[src_idx]) - 128;
                 }
             }

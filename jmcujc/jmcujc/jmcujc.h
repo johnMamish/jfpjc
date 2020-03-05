@@ -9,6 +9,9 @@ typedef struct jmcujc_component jmcujc_component_t;
 #include "jmcujc_image_util.h"
 #include "jmcujc_utils.h"
 
+#include "bit_dispenser.h"
+
+
 typedef struct jmcujc_subsampling_factors
 {
     int horizontal_sampling_factor;
@@ -68,6 +71,24 @@ typedef struct jmcujc_huffman_table
 /**
  *
  */
+typedef struct huffman_reverse_lookup_entry
+{
+    // bit length of 0 means that there is no entry for that value.
+    uint16_t bit_length;
+    uint16_t value;
+} huffman_reverse_lookup_entry_t;
+
+/**
+ *
+ */
+typedef struct huffman_reverse_lookup_table
+{
+    huffman_reverse_lookup_entry_t entries[256];
+} huffman_reverse_lookup_table_t;
+
+/**
+ *
+ */
 typedef struct jmcujc_quantization_table
 {
     // jmcujc only supports 8-bit quantization tables.
@@ -77,15 +98,21 @@ typedef struct jmcujc_quantization_table
 /**
  * jmcujc_jpeg_params contains all of the options and tables needed to compress image components
  * into a jpeg bytestream. These parameters are also used to generate jpeg headers.
- *
+
+' *
  * For most users, one of the preset defaults will work best.
  */
 typedef struct jmcujc_jpeg_params
 {
+    // TODO: these could be const, just not doing it right now for sake of development time.
+    bool _hrlt_valid;
+    huffman_reverse_lookup_table_t dc_hrlts[2];
+    huffman_reverse_lookup_table_t ac_hrlts[2];
+
     int num_dc_huffman_tables;
-    const jmcujc_huffman_table_t* dc_huffman_tables[4];
+    const jmcujc_huffman_table_t* dc_huffman_tables[2];
     int num_ac_huffman_tables;
-    const jmcujc_huffman_table_t* ac_huffman_tables[4];
+    const jmcujc_huffman_table_t* ac_huffman_tables[2];
 
     // Idea: we could have a multiplication factor parameter here in addition to just a bunch of
     // quant tables.
@@ -104,8 +131,13 @@ typedef struct jmcujc_jpeg_params
     // component 0, selector #1 is used for component 1, etc.
     // These arrays need to be filled out with valid values for as many components as there are.
     // Values beyond the number of components are don't care.
-    int component_huffman_table_selectors[4];
-    int component_quant_table_selectors[4];
+    int component_huffman_table_selectors[2];
+    int component_quant_table_selectors[2];
+
+    bit_packer_t bp;
+
+    // holds the previous DC value for each of the components for differential coding
+    float dc_prev[4];
 } jmcujc_jpeg_params_t;
 
 // constants
@@ -119,7 +151,7 @@ const extern jmcujc_huffman_table_t chrom_ac_huffman_table;
 const extern jmcujc_quantization_table_t lum_quant_table_best;
 const extern jmcujc_quantization_table_t lum_quant_table_high;
 const extern jmcujc_quantization_table_t lum_quant_table_medium;
-//const extern jmcujc_quantization_table_t lum_quant_table_low;
+const extern jmcujc_quantization_table_t lum_quant_table_low;
 //const extern jmcujc_quantization_table_t lum_quant_table_lowest;
 
 //const extern jmcujc_quantization_table_t chrom_quant_table_best;
@@ -142,9 +174,9 @@ const extern jmcujc_jpeg_params_t rgb_defaults;
  * jpeg header information into the given bytestream. After calling this function, we're ready to
  * start compressing the components into the bytestream.
  */
-int jmcujc_write_headers(const jmcujc_component_t* components,
-                         const int ncomponents,
-                         const jmcujc_jpeg_params_t* params,
+int jmcujc_write_headers(jmcujc_component_t* components,
+                         int ncomponents,
+                         jmcujc_jpeg_params_t* params,
                          jmcujc_bytearray_t* bytestream);
 
 
@@ -161,11 +193,16 @@ int jmcujc_write_headers(const jmcujc_component_t* components,
  * @param[out]    bytestream
  * @return  returns 0 on success, < 0 on failure.
  */
-int jmcujc_compress_components_to_bytestream(const jmcujc_component_t* components,
-                                             const int ncomponents,
-                                             const jmcujc_jpeg_params_t* params,
-                                             jmcujc_bytearray_t* bytestream);
+int jmcujc_compress_component_to_bytestream(jmcujc_component_t* component,
+                                            jmcujc_jpeg_params_t* params,
+                                            jmcujc_bytearray_t* bytestream);
 
+/**
+ * This function adds the final EOI marker to a bytestream holding compressed
+ * image components, thereby "finishing" it.
+ */
+int jmcujc_add_eoi_marker(jmcujc_jpeg_params_t* params,
+                          jmcujc_bytearray_t* bytestream);
 
 
 #endif

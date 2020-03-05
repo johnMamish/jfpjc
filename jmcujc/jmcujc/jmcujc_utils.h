@@ -19,6 +19,7 @@ typedef struct jmcujc_bytearray
  * procedure described in figure 5 of T.81.
  */
 void jmcujc_util_zigzag_data_inplace_u8(uint8_t* temp);
+void jmcujc_util_zigzag_data_inplace_f32(float* temp);
 
 void bytearray_add_byte(jmcujc_bytearray_t* arr, uint8_t byte);
 void bytearray_add_bytes(jmcujc_bytearray_t* arr, const uint8_t* bytes, int len);

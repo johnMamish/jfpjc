@@ -1,0 +1,16 @@
+  ( ) might be best to move dc differential coding to step before huffman coding.
+  ( ) try to keep all members of params struct const?
+  ( ) replace bytearray with bitarray
+  ( ) rename bit_dispenser.h to bit_packer.h and remove references to the dispensers
+  ( ) pass up errors through call chain
+         ( ) data overrun in bitpacker
+         ( ) malformed data
+         ( ) bad huffman table
+  ( ) circumnavigate inline + -Wunused-function
+
+
+Bugs fixed:
+  * _RBIT function I wrote for x86 didn't work right.
+  * This one was interesting: after I made the decision to switch all sample data to floating
+    point, there was an == 0 check in a for loop in the AC Huffman coding section that stopped
+    working.

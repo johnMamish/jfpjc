@@ -34,8 +34,9 @@ typedef struct jmcujc_image_slice
     int width;
     int height;
 
-    // Offset into source image. Note that there's no "xstart" only "ystart"; "xstart" should always
-    // be 0.
+    // Offset into source image. This can be used in case the system can't hold an entire frame in
+    // its memory at once. If the entire frame is in memory, it's best to just keep this at 0.
+    // Note that there's no "xstart" only "ystart"; "xstart" should always be 0.
     int yoffset;
 } jmcujc_image_slice_t;
 
