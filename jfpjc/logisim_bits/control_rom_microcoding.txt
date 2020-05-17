@@ -1,0 +1,14 @@
+
+
+ x  x  x|xxxx |  x   x   x   x|xxxx
+ d  d  d|dddd |  0   d   0   0|0000    0x0000    load address 0 into fetcher
+ d  d  d|dddd |  0   d   0   0|0111    0x0007    load address 7 into fetcher
+ 0  0  d|dddd |  0   0   1   d|dddd    0x0020    address 0 is now on output, store it in RF 0
+ 0  0  d|dddd |  0   1   1   d|dddd    0x0060    address 7 is now on output, store it in RF 1
+ d  d  0|0000 |  1   d   0   d|dddd    0x0080    sum is ready, store it in scratchpad memory.
+
+                                       0x0001
+                                       0x0006
+                                       0x0020
+                                       0x0060
+                                       0x0180
