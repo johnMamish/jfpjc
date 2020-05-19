@@ -77,7 +77,7 @@ module loeffler_dct_8_tb();
 
         // let it run for 16 uinstructions
         nreset = 1'b1;
-        while (dct.ucode_pc != 6'd41) begin
+        while (dct.ucode_pc != 6'd57) begin
             #1000;
         end
 
