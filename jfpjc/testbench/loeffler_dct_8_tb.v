@@ -10,6 +10,11 @@ module loeffler_dct_8_tb();
     wire [2:0] fetch_addr;
     wire fetch_clk;
 
+    wire [15:0] result_out;
+    wire  [2:0] result_addr;
+    wire        result_wren;
+    wire        result_clk;
+
     // memory holding the 8 (int8_t) elements that we want to take the dct of.
     ice40_ebr #(.addr_width(9), .data_width(8))  data_rom (.din(8'h00),
                                                            .write_en(1'b0),
@@ -24,7 +29,19 @@ module loeffler_dct_8_tb();
                        .nreset(nreset),
                        .fetch_data(fetch_data),
                        .fetch_addr(fetch_addr),
-                       .fetch_clk(fetch_clk));
+                       .fetch_clk(fetch_clk),
+                       .result_out(result_out),
+                       .result_addr(result_addr),
+                       .result_wren(result_wren),
+                       .result_clk(result_clk));
+
+    ice40_ebr #(.addr_width(8), .data_width(16)) output_mem(.din(result_out),
+                                                            .write_en(result_wren),
+                                                            .waddr({5'h0, result_addr}),
+                                                            .wclk(result_clk),
+                                                            .raddr(8'h0),
+                                                            .rclk(1'b0),
+                                                            .dout());
 
     // generate clock
     always
@@ -60,7 +77,7 @@ module loeffler_dct_8_tb();
 
         // let it run for 16 uinstructions
         nreset = 1'b1;
-        while (dct.ucode_pc != 6'h11) begin
+        while (dct.ucode_pc != 6'd41) begin
             #1000;
         end
 
@@ -71,7 +88,8 @@ module loeffler_dct_8_tb();
             end
         end
 
-        $writememh("scratchpad_mem_state.hex", dct.scratchpad.mem);
+        $writememh("scratchpad_mem_state.hex", dct.scratchpad.mem, 0, 23);
+        $writememh("output.hex", output_mem.mem, 0, 7);
         $finish;
     end
 endmodule

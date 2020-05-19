@@ -8,7 +8,7 @@
 
 `timescale 1ns/100ps
 
-`define UCODE_LEN (6'd17)
+`define UCODE_LEN (6'd41)
 
 
 // all of these constants are positive; they are rounded and multiplied by 128 to match the 7q8 format.
@@ -75,9 +75,11 @@ endmodule
 
 `define OP1_SRC_MEM 1'b0
 `define OP1_SRC_MUL 1'b1
+`define OP1_SRC_DC  1'bx
 
 `define OP2_SRC_MEM 1'b0
 `define OP2_SRC_MUL 1'b1
+`define OP2_SRC_DC  1'bx
 
 `define WRITE_SPAD 1'b0
 `define WRITE_OUT 1'b1
@@ -162,31 +164,72 @@ module loeffler_dct_8_control_rom(input      [ 5:0] addr,
             6'd15:     control = { `WRITE_NEN, `WRITE_SPAD, 5'hxx, 3'hx, `OP2_SRC_MEM, `OP1_SRC_MEM,
                                    `OP2_NNEGATE, `OP1_NNEGATE, `OP1_LATCH, `SRC_FETCH, 5'h07 };
             6'd16:    control = {  `WRITE_EN, `WRITE_SPAD, 5'h07, 3'hx, `OP2_SRC_MEM, `OP1_SRC_MEM,
-                                   `OP2_NEGATE, `OP1_NNEGATE, `OP1_RETAIN, `SRC_FETCH,  5'h00 };
+                                   `OP2_NEGATE, `OP1_NNEGATE, `OP1_RETAIN, `SRC_FETCH,  5'd00 };
 
             // scratchpad[8] = scratchpad[0] + scratchpad[3]
-
+            6'd17:     control = { `WRITE_NEN, `WRITE_SPAD, 5'hxx, 3'hx, `OP2_SRC_MEM, `OP1_SRC_MEM,
+                                   `OP2_NNEGATE, `OP1_NNEGATE, `OP1_LATCH, `SRC_SPAD, 5'd03 };
+            6'd18:    control = {  `WRITE_EN, `WRITE_SPAD, 5'd08, 3'hx, `OP2_SRC_MEM, `OP1_SRC_MEM,
+                                   `OP2_NNEGATE, `OP1_NNEGATE, `OP1_RETAIN, `SRC_SPAD,  5'd01 };
 
             // scratchpad[9] = scratchpad[1] + scratchpad[2]
-
+            6'd19:     control = { `WRITE_NEN, `WRITE_SPAD, 5'hxx, 3'hx, `OP2_SRC_MEM, `OP1_SRC_MEM,
+                                   `OP2_NNEGATE, `OP1_NNEGATE, `OP1_LATCH, `SRC_SPAD, 5'd02 };
+            6'd20:    control = {  `WRITE_EN, `WRITE_SPAD, 5'd09, 3'hx, `OP2_SRC_MEM, `OP1_SRC_MEM,
+                                   `OP2_NNEGATE, `OP1_NNEGATE, `OP1_RETAIN, `SRC_SPAD,  5'd01 };
 
             // scratchpad[10] = scratchpad[1] - scratchpad[2]
-
+            6'd21:     control = { `WRITE_NEN, `WRITE_SPAD, 5'hxx, 3'hx, `OP2_SRC_MEM, `OP1_SRC_MEM,
+                                   `OP2_NNEGATE, `OP1_NNEGATE, `OP1_LATCH, `SRC_SPAD, 5'd02 };
+            6'd22:    control = {  `WRITE_EN, `WRITE_SPAD, 5'd10, 3'hx, `OP2_SRC_MEM, `OP1_SRC_MEM,
+                                   `OP2_NEGATE, `OP1_NNEGATE, `OP1_RETAIN, `SRC_SPAD,  5'd00 };
 
             // scratchpad[11] = scratchpad[0] - scratchpad[3]
+            6'd23:     control = { `WRITE_NEN, `WRITE_SPAD, 5'hxx, 3'hx, `OP2_SRC_MEM, `OP1_SRC_MEM,
+                                   `OP2_NNEGATE, `OP1_NNEGATE, `OP1_LATCH, `SRC_SPAD, 5'd03 };
+            6'd24:    control = {  `WRITE_EN, `WRITE_SPAD, 5'd11, 3'hx, `OP2_SRC_MEM, `OP1_SRC_MEM,
+                                   `OP2_NEGATE, `OP1_NNEGATE, `OP1_RETAIN, `SRC_SPAD,  5'd04 };
 
 
             // scratchpad[12] = scratchpad[4] * _1C3_COS_7Q8 + scratchpad[7] * _1C3_SIN_7Q8
+            // scratchpad[15] = -scratchpad[4] * _1C3_SIN_7Q8 + scratchpad[7] * _1C3_COS_7Q8
+            // scratchpad[13] = scratchpad[5] * _1C1_COS_7Q8 + scratchpad[6] * _1C1_COS_7Q8
+            // scratchpad[14] = -scratchpad[5] * _1C1_SIN_7Q8 + scratchpad[6] * _1C1_COS_7Q8
+            6'd25:    control = { `WRITE_NEN, `WRITE_SPAD, 5'hxx, 3'h0, `OP2_SRC_DC, `OP1_SRC_DC,
+                                  `OP2_NNEGATE, `OP1_NNEGATE, `OP1_RETAIN, `SRC_SPAD, 5'd07 };
+            6'd26:    control = { `WRITE_NEN, `WRITE_SPAD, 5'hxx, 3'h1, `OP2_SRC_DC, `OP1_SRC_DC,
+                                  `OP2_NNEGATE, `OP1_NNEGATE, `OP1_RETAIN, `SRC_SPAD, 5'd04 };
+            6'd27:    control = { `WRITE_NEN, `WRITE_SPAD, 5'hxx, 3'h1, `OP2_SRC_DC, `OP1_SRC_MUL,    // next cycle, sp[4] * 1c3cos -> op_latch
+                                  `OP2_NNEGATE, `OP1_NNEGATE, `OP1_LATCH, `SRC_SPAD, 5'd07 };
+            6'd28:    control = { `WRITE_EN,  `WRITE_SPAD, 5'd12, 3'h0, `OP2_SRC_MUL, `OP1_SRC_DC,    // next cycle, op_latch + (sp[7] * 1c3sin) -> sp[12]
+                                  `OP2_NNEGATE, `OP1_NNEGATE, `OP1_RETAIN, `SRC_SPAD, 5'd5 };
+            6'd29:    control = { `WRITE_NEN, `WRITE_SPAD, 5'hxx, 3'h2,  `OP2_SRC_DC, `OP1_SRC_MUL,   // next cycle, sp[4] * 1c3sin -> op_latch
+                                  `OP2_NNEGATE, `OP1_NNEGATE, `OP1_LATCH, `SRC_SPAD, 5'd6 };
+            6'd30:    control = { `WRITE_EN,  `WRITE_SPAD, 5'd15, 3'h3, `OP2_SRC_MUL, `OP1_SRC_DC,    // next cycle, -op_latch + (sp[7] * 1c3cos) -> sp[15]
+                                  `OP2_NNEGATE, `OP1_NEGATE, `OP1_RETAIN, `SRC_SPAD, 5'd5 };
+            6'd31:    control = { `WRITE_NEN, `WRITE_SPAD, 5'hxx, 3'h3, `OP2_SRC_DC, `OP1_SRC_MUL,    // next cycle, sp[5] * 1c1cos -> op_latch
+                                  `OP2_NNEGATE, `OP1_NNEGATE, `OP1_LATCH, `SRC_SPAD, 5'd6 };
+            6'd32:    control = {  `WRITE_EN, `WRITE_SPAD, 5'd13, 3'h2, `OP2_SRC_MUL, `OP1_SRC_DC,    // next cycle, op_latch + (sp[6] * 1c1sin) -> sp[13]
+                                   `OP2_NNEGATE, `OP1_NNEGATE, `OP1_RETAIN, `SRC_SPAD, 5'd8 };        // start loading next stage into mul pipeline
+            6'd33:    control = { `WRITE_NEN, `WRITE_SPAD, 5'hxx, 3'h7, `OP2_SRC_DC, `OP1_SRC_MUL,   // next cycle, sp[5] * 1c1sin -> op_latch
+                                  `OP2_NNEGATE, `OP1_NNEGATE, `OP1_LATCH, `SRC_SPAD, 5'd9 };
+            6'd34:    control = {  `WRITE_EN, `WRITE_SPAD, 5'd14, 3'h7, `OP2_SRC_MUL, `OP1_SRC_DC,    // next cycle, -op_latch + (sp[6] * 1c1cos) -> sp[14]
+                                  `OP2_NNEGATE,  `OP1_NEGATE, `OP1_RETAIN, `SRC_SPAD, 5'd8 };
 
-
-            // scratchpad[13] = -scratchpad[4] * _1C3_SIN_7Q8 + scratchpad[7] * _1C3_COS_7Q8
-
-
-            // scratchpad[14] = scratchpad[5] * _1C1_COS_7Q8 + scratchpad[6] * _1C1_COS_7Q8
-
-
-            // scratchpad[15] = -scratchpad[5] * _1C1_SIN_7Q8 + scratchpad[6] * _1C1_COS_7Q8
-
+            // data_out[0] = scratchpad[8] * _SQRT2_OVER4 + scratchpad[9] * _SQRT2_OVER4
+            // data_out[4] = scratchpad[8] * _SQRT2_OVER4 - scratchpad[9] * _SQRT2_OVER4
+            6'd35:    control = { `WRITE_NEN, `WRITE_SPAD, 5'hxx, 3'h7, `OP2_SRC_DC, `OP1_SRC_MUL,   // next cycle, sp[8] * (r(2) / 4) -> op_latch
+                                  `OP2_NNEGATE, `OP1_NNEGATE, `OP1_LATCH, `SRC_SPAD, 5'd9 };
+            6'd36:    control = { `WRITE_EN,  `WRITE_OUT,  5'd0, 3'h7, `OP2_SRC_MUL, `OP1_SRC_DC,    // next cycle, op_latch + (sp[9] * (r(2) / 4)) -> out0
+                                  `OP2_NNEGATE, `OP1_NNEGATE, `OP1_RETAIN, `SRC_SPAD, 5'd10 };
+            6'd37:    control = { `WRITE_NEN, `WRITE_SPAD, 5'hxx, 3'h4, `OP2_SRC_DC, `OP1_SRC_MUL,   // sp[8] * (r(2) / 4) -> op_latch (redundant)
+                                  `OP2_NNEGATE, `OP1_NNEGATE, `OP1_LATCH, `SRC_SPAD, 5'd11 };
+            6'd38:    control = { `WRITE_EN, `WRITE_OUT, 5'd4, 3'h5, `OP2_SRC_MUL, `OP1_SRC_DC ,     // op_latch - (sp[9] * (r(2) / 4)) -> out[4]
+                                  `OP2_NEGATE, `OP1_NNEGATE, `OP1_RETAIN, `SRC_SPAD, 5'd10 };
+            6'd39:    control = { `WRITE_NEN, `WRITE_SPAD, 5'hxx, 3'h5, `OP2_SRC_DC, `OP1_SRC_MUL,   // sp[10] * r2c1cos -> op_latch
+                                  `OP2_NNEGATE, `OP1_NNEGATE, `OP1_LATCH, `SRC_SPAD, 5'd11 };
+            6'd40:    control = { `WRITE_EN, `WRITE_SPAD, 5'd20, 3'h4, `OP2_SRC_MUL, `OP1_SRC_DC,    // op_latch  + (sp[11] * r2c1sin) -> sp[20]
+                                  `OP2_NNEGATE, `OP1_NNEGATE, `OP1_RETAIN, `SRC_SPAD, 5'd12 };
 
 
             default:  control = 15'h0;
@@ -205,9 +248,14 @@ module loeffler_dct_8(input             clock,
                       input             nreset,
                       input      [7:0]  fetch_data,
                       output reg [2:0]  fetch_addr,
-                      output            fetch_clk);
+                      output            fetch_clk,
+                      output reg [15:0] result_out,
+                      output      [2:0] result_addr,
+                      output            result_wren,
+                      output            result_clk);
 
     assign fetch_clk = clock;
+    assign result_clk = clock;
 
     // control ROM
     reg [5:0] ucode_pc;
@@ -235,6 +283,10 @@ module loeffler_dct_8(input             clock,
                                              ucode_read_src,
                                              ucode_readaddr}));
 
+    assign result_wren = ((ucode_write_dest == `WRITE_OUT) &&
+                          (ucode_scratchpad_write_enable == `WRITE_EN));
+    assign result_addr = ucode_scratchpad_writeaddr[2:0];
+
     // Internal scratchpad memory
     reg  [15:0] scratchpad_writedata;
     reg         scratchpad_wren;
@@ -261,7 +313,7 @@ module loeffler_dct_8(input             clock,
         end
     end
 
-    wire signed [15:0] multiplier_op1;
+    reg signed [15:0] multiplier_op1;
     wire signed [15:0] multiplier_out_7q8;
     wire signed [31:0] multiplier_out;
     pipelined_multiplier mul(clock, multiplier_op1, {7'b0, multiplier_consts}, multiplier_out);
@@ -280,6 +332,7 @@ module loeffler_dct_8(input             clock,
         scratchpad_waddr = { 3'h0, ucode_scratchpad_writeaddr };
         scratchpad_raddr = { 3'h0, ucode_readaddr };
         fetch_addr = ucode_readaddr[2:0];
+        multiplier_op1 = operand_bus;
     end
 
     // Operand latch
@@ -314,6 +367,7 @@ module loeffler_dct_8(input             clock,
             2'b11: adder_output = -operand_latch - operand2;
         endcase
         scratchpad_writedata = adder_output;
+        result_out = (result_wren) ? (adder_output) : (16'h0000);
     end
 
 endmodule
