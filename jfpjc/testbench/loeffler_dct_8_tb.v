@@ -48,7 +48,9 @@ module loeffler_dct_8_tb();
         nreset = 1'b0; #3000;
 
         // let it run for a little
-        nreset = 1'b1; #10000;
+        nreset = 1'b1; #20000;
+
+        $writememh("scratchpad_mem_state.hex", dct.scratchpad.mem);
         $finish;
     end
 endmodule
