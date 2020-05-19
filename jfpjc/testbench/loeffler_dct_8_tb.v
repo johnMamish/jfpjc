@@ -35,10 +35,21 @@ module loeffler_dct_8_tb();
     end
 
     integer i;
+    reg [15:0] scratchpad_result [7:0];
     initial begin
         for (i = 0; i < 8; i = i + 1) begin
             data_rom.mem[i] = (i + 1);
         end
+
+        scratchpad_result[0] = 16'h0009;
+        scratchpad_result[1] = 16'h0009;
+        scratchpad_result[2] = 16'h0009;
+        scratchpad_result[3] = 16'h0009;
+        scratchpad_result[4] = 16'hffff;
+        scratchpad_result[5] = 16'hfffd;
+        scratchpad_result[6] = 16'hfffb;
+        scratchpad_result[7] = 16'hfff9;
+
         clock = 'b0;
 
         $dumpfile("loeffler_dct_8_tb.vcd");
@@ -47,8 +58,18 @@ module loeffler_dct_8_tb();
         // strobe reset for a few microseconds
         nreset = 1'b0; #3000;
 
-        // let it run for a little
-        nreset = 1'b1; #20000;
+        // let it run for 16 uinstructions
+        nreset = 1'b1;
+        while (dct.ucode_pc != 6'h11) begin
+            #1000;
+        end
+
+        // check the result
+        for (i = 0; i < 8; i = i + 1) begin
+            if (dct.scratchpad.mem[i] != scratchpad_result[i]) begin
+                $display("bad result at location %d. %h != %h", i, dct.scratchpad.mem[i], scratchpad_result[i]);
+            end
+        end
 
         $writememh("scratchpad_mem_state.hex", dct.scratchpad.mem);
         $finish;

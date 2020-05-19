@@ -1,8 +1,14 @@
 /**
  * Copyright John Mamish, 2020
+ *
+ * TODOs
+ *   ( ) reorder microcode to avoid some redundant loads
+ *   ( ) rom module should have individual signals named.
  */
 
-`define UCODE_LEN (6'd017)
+`timescale 1ns/100ps
+
+`define UCODE_LEN (6'd17)
 
 
 // all of these constants are positive; they are rounded and multiplied by 128 to match the 7q8 format.
@@ -39,23 +45,45 @@
 // 90.5096679917
 `define _SQRT2_OVER4_7Q8 (9'd90)
 
-`timescale 1ns/100ps
-
 module multiplier_constants(input [2:0] select,
-                            output [7:0] out);
+                            output reg [8:0] out);
     always @ * begin
         case (select)
-            3'd0: `_1C3_COS_7Q8;
-            3'd1: `_1C3_SIN_7Q8;
-            3'd2: `_1C1_COS_7Q8;
-            3'd3: `_1C1_SIN_7Q8;
-            3'd4: `_R2C1_COS_7Q8;
-            3'd5: `_R2C1_SIN_7Q8;
-            3'd6: `_SQRT2_7Q8;
-            3'd7: `_SQRT2_OVER4_7Q8;
+            3'd0: out = `_1C3_COS_7Q8;
+            3'd1: out = `_1C3_SIN_7Q8;
+            3'd2: out = `_1C1_COS_7Q8;
+            3'd3: out = `_1C1_SIN_7Q8;
+            3'd4: out = `_R2C1_COS_7Q8;
+            3'd5: out = `_R2C1_SIN_7Q8;
+            3'd6: out = `_SQRT2_7Q8;
+            3'd7: out = `_SQRT2_OVER4_7Q8;
         endcase
     end
 endmodule
+
+`define SRC_FETCH 1'b0
+`define SRC_SPAD 1'b1
+
+`define OP1_RETAIN 1'b0
+`define OP1_LATCH 1'b1
+
+`define OP1_NNEGATE 1'b0
+`define OP1_NEGATE 1'b1
+
+`define OP2_NNEGATE 1'b0
+`define OP2_NEGATE 1'b1
+
+`define OP1_SRC_MEM 1'b0
+`define OP1_SRC_MUL 1'b1
+
+`define OP2_SRC_MEM 1'b0
+`define OP2_SRC_MUL 1'b1
+
+`define WRITE_SPAD 1'b0
+`define WRITE_OUT 1'b1
+
+`define WRITE_NEN 1'b0
+`define WRITE_EN 1'b1
 
 /**
  *
@@ -64,57 +92,77 @@ endmodule
  * * Control <6:6> - Latch read value in operand?
  * * Control <7:7> - Negate operand1 of adder?
  * * Control <8:8> - Negate operand2 of adder?
- *
- * * Control <13:9> - Write addr
- * * Control <14:14> - Write enable
+ * * Control <9:9> - op1 latch select (op load or multiplier output)
+ * * control <10:10> - op2 select (op load or multiplier output)
+ * * control <13:11> - coefficient select (see multiplier_constants)
+ * * control <18:14> - write addr
+ * * control <19:19> - write dest (0 is internal scratchpad, 1 is output)
+ * * Control <20:20> - Write enable
  */
 module loeffler_dct_8_control_rom(input      [ 5:0] addr,
-                                 output reg [14:0] control);
+                                  output reg [20:0] control);
     always @ * begin
         case(addr)
             // next cycle, fetch_data[0] appears on output of EBR
-            6'd0:     control = { 1'h0, 5'hxx, 1'hx, 1'hx, 1'hx, 1'h0, 5'h00 };
+            6'd0:     control = { `WRITE_NEN, `WRITE_SPAD, 5'hxx, 3'hx, `OP2_SRC_MEM, `OP1_SRC_MEM,
+                                  `OP2_NNEGATE, `OP1_NNEGATE,  `OP1_LATCH, `SRC_FETCH, 5'h00 };
 
             // next cycle, fetch_data[0] is latched in the operand latch
             //             fetch_data[7] appears on output of EBR
-            6'd1:     control = { 1'h0, 5'hxx, 1'hx, 1'h0, 1'h1, 1'h0, 5'h07 };
+            6'd1:     control = { `WRITE_NEN, `WRITE_SPAD, 5'hxx, 3'hx, `OP2_SRC_MEM, `OP1_SRC_MEM,
+                                  `OP2_NNEGATE, `OP1_NNEGATE,  `OP1_LATCH, `SRC_FETCH, 5'h07 };
 
             // next cycle, operand_latch + EBR output is stored in scratchpad
             //             fetch_data[1] appears on output of EBR
             // Side note: bit 6 COULD be x, but making it 0 makes me feel comfy.
-            6'd2:     control = { 1'h1, 5'h00, 1'h0, 1'h0, 1'h0, 1'h0, 5'h01 };
+            6'd2:     control = {  `WRITE_EN, `WRITE_SPAD, 5'h00, 3'hx, `OP2_SRC_MEM, `OP1_SRC_MEM,
+                                  `OP2_NNEGATE, `OP1_NNEGATE, `OP1_RETAIN, `SRC_FETCH, 5'h01 };
 
             // next cycle, fetch_data[1] is latched in the operand latch
             //             fetch_data[6] appears on output of EBR
-            6'd3:     control = { 1'h0, 5'hxx, 1'h0, 1'h0, 1'h1, 1'h0, 5'h06 };
+            6'd3:     control = { `WRITE_NEN, `WRITE_SPAD, 5'hxx, 3'hx, `OP2_SRC_MEM, `OP1_SRC_MEM,
+                                   `OP2_NNEGATE, `OP1_NNEGATE, `OP1_LATCH, `SRC_FETCH, 5'h06 };
 
             // next cycle, operand_latch + EBR output is stored in scratchpad
             //             fetch_data[1] appears on output of EBR
-            6'd4:     control = { 1'h1, 5'h01, 1'h0, 1'h0, 1'h0, 1'h0, 5'h02 };
+            6'd4:     control = {  `WRITE_EN, `WRITE_SPAD, 5'h01, 3'hx, `OP2_SRC_MEM, `OP1_SRC_MEM,
+                                   `OP2_NNEGATE, `OP1_NNEGATE, `OP1_RETAIN, `SRC_FETCH, 5'h02 };
 
-            // scratchpad[2] = input_data[2] + input_data[5]
-            6'd5:     control = { 1'h0, 5'hxx, 1'h0, 1'h0, 1'h1, 1'h0, 5'h05 };
-            6'd6:     control = { 1'h1, 5'h02, 1'h0, 1'h0, 1'h0, 1'h0, 5'h03 };
+            6'd5:     control = { `WRITE_NEN, `WRITE_SPAD, 5'hxx, 3'hx, `OP2_SRC_MEM, `OP1_SRC_MEM,
+                                   `OP2_NNEGATE, `OP1_NNEGATE, `OP1_LATCH, `SRC_FETCH, 5'h05 };
+            6'd6:     control = {  `WRITE_EN, `WRITE_SPAD, 5'h02, 3'hx, `OP2_SRC_MEM, `OP1_SRC_MEM,
+                                   `OP2_NNEGATE, `OP1_NNEGATE, `OP1_RETAIN, `SRC_FETCH,  5'h03 };
+
 
             // scratchpad[3] = input_data[3] + input_data[4]
-            6'd7:     control = { 1'h0, 5'hxx, 1'h0, 1'h0, 1'h1, 1'h0, 5'h04 };
-            6'd8:     control = { 1'h1, 5'h03, 1'h0, 1'h0, 1'h0, 1'h0, 5'h03 };
+            6'd7:     control = { `WRITE_NEN, `WRITE_SPAD, 5'hxx, 3'hx, `OP2_SRC_MEM, `OP1_SRC_MEM,
+                                   `OP2_NNEGATE, `OP1_NNEGATE, `OP1_LATCH, `SRC_FETCH, 5'h04 };
+            6'd8:     control = {  `WRITE_EN, `WRITE_SPAD, 5'h03, 3'hx, `OP2_SRC_MEM, `OP1_SRC_MEM,
+                                   `OP2_NNEGATE, `OP1_NNEGATE, `OP1_RETAIN, `SRC_FETCH,  5'h03 };
 
             // scratchpad[4] = input_data[3] - input_data[4]
-            6'd9:     control = { 1'h0, 5'hxx, 1'h0, 1'h0, 1'h1, 1'h0, 5'h04 };
-            6'd10:     control = { 1'h1, 5'h04, 1'h1, 1'h0, 1'h0, 1'h0, 5'h02 };
+            6'd9:     control = { `WRITE_NEN, `WRITE_SPAD, 5'hxx, 3'hx, `OP2_SRC_MEM, `OP1_SRC_MEM,
+                                  `OP2_NNEGATE, `OP1_NNEGATE, `OP1_LATCH, `SRC_FETCH, 5'h04 };
+            6'd10:    control = {  `WRITE_EN, `WRITE_SPAD, 5'h04, 3'hx, `OP2_SRC_MEM, `OP1_SRC_MEM,
+                                   `OP2_NEGATE, `OP1_NNEGATE, `OP1_RETAIN, `SRC_FETCH,  5'h02 };
 
             // scratchpad[5] = input_data[2] - input_data[5]
-            6'd11:     control = { 1'h0, 5'hxx, 1'h0, 1'h0, 1'h1, 1'h0, 5'h05 };
-            6'd12:     control = { 1'h1, 5'h05, 1'h1, 1'h0, 1'h0, 1'h0, 5'h01 };
+            6'd11:     control = { `WRITE_NEN, `WRITE_SPAD, 5'hxx, 3'hx, `OP2_SRC_MEM, `OP1_SRC_MEM,
+                                  `OP2_NNEGATE, `OP1_NNEGATE, `OP1_LATCH, `SRC_FETCH, 5'h05 };
+            6'd12:    control = {  `WRITE_EN, `WRITE_SPAD, 5'h05, 3'hx, `OP2_SRC_MEM, `OP1_SRC_MEM,
+                                   `OP2_NEGATE, `OP1_NNEGATE, `OP1_RETAIN, `SRC_FETCH,  5'h01 };
 
             // scratchpad[6] = input_data[1] - input_data[6]
-            6'd13:     control = { 1'h0, 5'hxx, 1'h0, 1'h0, 1'h1, 1'h0, 5'h06 };
-            6'd14:     control = { 1'h1, 5'h06, 1'h1, 1'h0, 1'h0, 1'h0, 5'h00 };
+            6'd13:    control = { `WRITE_NEN, `WRITE_SPAD, 5'hxx, 3'hx, `OP2_SRC_MEM, `OP1_SRC_MEM,
+                                  `OP2_NNEGATE, `OP1_NNEGATE, `OP1_LATCH, `SRC_FETCH, 5'h06 };
+            6'd14:    control = {  `WRITE_EN, `WRITE_SPAD, 5'h06, 3'hx, `OP2_SRC_MEM, `OP1_SRC_MEM,
+                                   `OP2_NEGATE, `OP1_NNEGATE, `OP1_RETAIN, `SRC_FETCH,  5'h00 };
 
             // scratchpad[7] = input_data[0] - input_data[7]
-            6'd15:     control = { 1'h0, 5'hxx, 1'h0, 1'h0, 1'h1, 1'h0, 5'h07 };
-            6'd16:     control = { 1'h1, 5'h07, 1'h1, 1'h0, 1'h0, 1'h0, 5'h00 };
+            6'd15:     control = { `WRITE_NEN, `WRITE_SPAD, 5'hxx, 3'hx, `OP2_SRC_MEM, `OP1_SRC_MEM,
+                                   `OP2_NNEGATE, `OP1_NNEGATE, `OP1_LATCH, `SRC_FETCH, 5'h07 };
+            6'd16:    control = {  `WRITE_EN, `WRITE_SPAD, 5'h07, 3'hx, `OP2_SRC_MEM, `OP1_SRC_MEM,
+                                   `OP2_NEGATE, `OP1_NNEGATE, `OP1_RETAIN, `SRC_FETCH,  5'h00 };
 
             // scratchpad[8] = scratchpad[0] + scratchpad[3]
 
@@ -161,6 +209,32 @@ module loeffler_dct_8(input             clock,
 
     assign fetch_clk = clock;
 
+    // control ROM
+    reg [5:0] ucode_pc;
+    wire [4:0] ucode_readaddr;
+    wire ucode_read_src;
+    wire ucode_latch_operand1;
+    wire ucode_negate_operand1;
+    wire ucode_negate_operand2;
+    wire ucode_op1_src;
+    wire ucode_op2_sel;
+    wire [2:0] ucode_coeff_select;
+    wire [4:0] ucode_scratchpad_writeaddr;
+    wire ucode_write_dest;
+    wire ucode_scratchpad_write_enable;
+    loeffler_dct_8_control_rom rom(.addr(ucode_pc),
+                                   .control({ucode_scratchpad_write_enable,
+                                             ucode_write_dest,
+                                             ucode_scratchpad_writeaddr,
+                                             ucode_coeff_select,
+                                             ucode_op2_sel,
+                                             ucode_op1_src,
+                                             ucode_negate_operand2,
+                                             ucode_negate_operand1,
+                                             ucode_latch_operand1,
+                                             ucode_read_src,
+                                             ucode_readaddr}));
+
     // Internal scratchpad memory
     reg  [15:0] scratchpad_writedata;
     reg         scratchpad_wren;
@@ -175,26 +249,8 @@ module loeffler_dct_8(input             clock,
                                                              .rclk(clock),
                                                              .dout(scratchpad_readdata));
 
-    // control ROM
-    reg [5:0] ucode_pc;
-    wire [4:0] ucode_readaddr;
-    wire ucode_read_src;
-    wire ucode_latch_operand1;
-    wire ucode_negate_operand1;
-    wire ucode_negate_operand2;
-    wire [4:0] ucode_scratchpad_writeaddr;
-    wire ucode_scratchpad_write_enable;
-    loeffler_dct_8_control_rom rom(.addr(ucode_pc),
-                                   .control({ucode_scratchpad_write_enable,
-                                             ucode_scratchpad_writeaddr,
-                                             ucode_negate_operand2,
-                                             ucode_negate_operand1,
-                                             ucode_latch_operand1,
-                                             ucode_read_src,
-                                             ucode_readaddr}));
-
-    wire multiplier_consts[8:0];
-    multiplier_constants mulrom(.select(), .out(multiplier_constants));
+    wire [8:0] multiplier_consts;
+    multiplier_constants mulrom(.select(ucode_coeff_select), .out(multiplier_consts));
 
     reg [15:0] operand_bus;
     always @ * begin
@@ -208,20 +264,19 @@ module loeffler_dct_8(input             clock,
     wire signed [15:0] multiplier_op1;
     wire signed [15:0] multiplier_out_7q8;
     wire signed [31:0] multiplier_out;
-    pipelined_multiplier mul(clock, multiplier_op1, {7{1'b0}, multipler_consts}, multiplier_out);
+    pipelined_multiplier mul(clock, multiplier_op1, {7'b0, multiplier_consts}, multiplier_out);
     assign multiplier_out_7q8 = multiplier_out[23:8];
 
     reg [15:0] operand2;
     always @ * begin
-        if (operand2_select == `OPERAND2_SELECT_OPERANDBUS) begin
-            operand2 = operand_bus;
-        end else begin
-            operand2 = multiplier;
-        end
+        case (ucode_op2_sel)
+            `OP2_SRC_MEM: operand2 = operand_bus;
+            `OP2_SRC_MUL: operand2 = multiplier_out_7q8;
+        endcase
     end
 
     always @ * begin
-        scratchpad_wren = ucode_scratchpad_write_enable;
+        scratchpad_wren = ucode_scratchpad_write_enable && (ucode_write_dest == `WRITE_SPAD);
         scratchpad_waddr = { 3'h0, ucode_scratchpad_writeaddr };
         scratchpad_raddr = { 3'h0, ucode_readaddr };
         fetch_addr = ucode_readaddr[2:0];
@@ -236,11 +291,10 @@ module loeffler_dct_8(input             clock,
 
             // operand latch
             if (ucode_latch_operand1) begin
-                if (op1_latch_src == `OP1_LATCH_SRC_OPERANDBUS) begin
-                    operand_latch <= operand_bus;
-                end else begin
-                    operand_latch <= multipler_out_7q8;
-                end
+                case (ucode_op1_src)
+                    `OP1_SRC_MEM: operand_latch <= operand_bus;
+                    `OP1_SRC_MUL: operand_latch <= multiplier_out_7q8;
+                endcase
             end else begin
                 operand_latch <= operand_latch;
             end

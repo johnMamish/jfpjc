@@ -3,6 +3,8 @@
  * Lattice's Technical Note TN1250. It is copyright Lattice, NOT mine.
  */
 
+`timescale 1ns/100ps
+
 module ice40_ebr (din, write_en, waddr, wclk, raddr, rclk, dout);//512x8
     parameter addr_width = 9;
     parameter data_width = 8;
