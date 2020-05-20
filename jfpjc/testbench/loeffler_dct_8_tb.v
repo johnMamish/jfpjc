@@ -3,52 +3,6 @@
 `include "fixed_point_consts.v"
 
 module loeffler_dct_8_tb();
-
-    task loeffler_dct_8_test_q7();
-        //input [7:0] _data_in_q7 [7:0];
-        //output [15:0] _data_out_7q8 [7:0];
-        input [63:0] _data_in_q7;
-
-        reg signed [7:0] _data_in_q7 [8];
-        reg signed [15:0] _data_out_7q8 [8];
-
-        reg signed [15:0] scratchpad_7q8 [23:0];
-
-        scratchpad_7q8[0] = data_in_q7[0] + data_in_q7[7];
-        scratchpad_7q8[1] = data_in_q7[1] + data_in_q7[6];
-        scratchpad_7q8[2] = data_in_q7[2] + data_in_q7[5];
-        scratchpad_7q8[3] = data_in_q7[3] + data_in_q7[4];
-        scratchpad_7q8[4] = data_in_q7[3] - data_in_q7[4];
-        scratchpad_7q8[5] = data_in_q7[2] - data_in_q7[5];
-        scratchpad_7q8[6] = data_in_q7[1] - data_in_q7[6];
-        scratchpad_7q8[7] = data_in_q7[0] - data_in_q7[7];
-
-
-        scratchpad_7q8[8] = scratchpad_7q8[0] + scratchpad_7q8[3];
-        scratchpad_7q8[9] = scratchpad_7q8[1] + scratchpad_7q8[2];
-        scratchpad_7q8[10] = scratchpad_7q8[1] - scratchpad_7q8[2];
-        scratchpad_7q8[11] = scratchpad_7q8[0] - scratchpad_7q8[3];
-        scratchpad_7q8[12] = (scratchpad_7q8[4] * `_1C3_COS_7Q8) + (scratchpad_7q8[7] * `_1C3_SIN_7Q8);
-        scratchpad_7q8[13] = (scratchpad_7q8[7] * `_1C3_COS_7Q8) - (scratchpad_7q8[4] * `_1C3_SIN_7Q8);
-        scratchpad_7q8[14] = (scratchpad_7q8[5] * `_1C1_COS_7Q8) + (scratchpad_7q8[6] * `_1C1_SIN_7Q8);
-        scratchpad_7q8[15] = (scratchpad_7q8[6] * `_1C1_COS_7Q8) - (scratchpad_7q8[5] * `_1C1_SIN_7Q8);
-
-        data_out_7q8[0] = (scratchpad_7q8[8] * `_SQRT2_OVER4_7Q8) + (scratchpad_7q8[9] * `_SQRT2_OVER4_7Q8);
-        data_out_7q8[4] = (scratchpad_7q8[8] * `_SQRT2_OVER4_7Q8) - (scratchpad_7q8[9] * `_SQRT2_OVER4_7Q8);
-        data_out_7q8[2] = (scratchpad_7q8[10] * `_R2C1_COS_7Q8) + (scratchpad_7q8[11] * `_R2C1_SIN_7Q8);
-        data_out_7q8[6] = (scratchpad_7q8[11] * `_R2C1_COS_7Q8) - (scratchpad_7q8[10] * `_R2C1_SIN_7Q8);
-        scratchpad_7q8[20] = scratchpad_7q8[12] + scratchpad_7q8[14];
-        scratchpad_7q8[21] = scratchpad_7q8[15] - scratchpad_7q8[13];
-        scratchpad_7q8[22] = scratchpad_7q8[12] - scratchpad_7q8[14];
-        scratchpad_7q8[23] = scratchpad_7q8[13] + scratchpad_7q8[15];
-
-        data_out[7] = scratchpad_7q8[23] - scratchpad_7q8[20];
-        data_out[3] = scratchpad_7q8[21] * `_SQRT2_7Q8;
-        data_out[5] = scratchpad_7q8[22] * `_SQRT2_7Q8;
-        data_out[1] = scratchpad_7q8[23] + scratchpad_7q8[20];
-    endtask
-
-
     reg clock;
     reg nreset;
 
