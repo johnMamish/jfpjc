@@ -54,36 +54,52 @@ module loeffler_dct_8_tb();
 
     integer i;
     reg [15:0] scratchpad_result [7:0];
-    reg [15:0] signed groundtruth [7:0];
     initial begin
-        for (i = 0; i < 8; i = i + 1) begin
-            data_rom.mem[i] = (i + 1);
-        end
-
-        scratchpad_result[0] = 16'h0009;
-        scratchpad_result[1] = 16'h0009;
-        scratchpad_result[2] = 16'h0009;
-        scratchpad_result[3] = 16'h0009;
-        scratchpad_result[4] = 16'hffff;
-        scratchpad_result[5] = 16'hfffd;
-        scratchpad_result[6] = 16'hfffb;
-        scratchpad_result[7] = 16'hfff9;
-
         clock = 'b0;
 
         $dumpfile("loeffler_dct_8_tb.vcd");
         $dumpvars(0, loeffler_dct_8_tb);
 
-        loeffler_dct_8_test_q7(data_rom.mem, groundtruth);
-
         // strobe reset for a few microseconds
-        nreset = 1'b0; #3000;
 
-        // let it run for 16 uinstructions
+        // let it run for 57 uinstructions with testcase 1
+        nreset = 1'b0; #3000;
+        $readmemh("dct_testcase_1_in.hex", data_rom.mem);
         nreset = 1'b1;
         while (dct.ucode_pc != 6'd57) begin
             #1000;
         end
+        for (i = 0; i < 8; i = i + 1) begin
+            $display("%h", output_mem.mem[i]);
+        end
+        $writememh("scratchpad_mem_state_1.hex", dct.scratchpad.mem, 0, 23);
+        $writememh("output_1.hex", output_mem.mem, 0, 7);
+
+        // let it run for 57 uinstructions with testcase 2
+        nreset = 1'b0; #3000;
+        $readmemh("dct_testcase_2_in.hex", data_rom.mem);
+        nreset = 1'b1;
+        while (dct.ucode_pc != 6'd57) begin
+            #1000;
+        end
+        for (i = 0; i < 8; i = i + 1) begin
+            $display("%h", output_mem.mem[i]);
+        end
+        $writememh("scratchpad_mem_state_2.hex", dct.scratchpad.mem, 0, 23);
+        $writememh("output_2.hex", output_mem.mem, 0, 7);
+
+        // let it run for 57 uinstructions with testcase 3
+        nreset = 1'b0; #3000;
+        $readmemh("dct_testcase_3_in.hex", data_rom.mem);
+        nreset = 1'b1;
+        while (dct.ucode_pc != 6'd57) begin
+            #1000;
+        end
+        for (i = 0; i < 8; i = i + 1) begin
+            $display("%h", output_mem.mem[i]);
+        end
+        $writememh("scratchpad_mem_state_3.hex", dct.scratchpad.mem, 0, 23);
+        $writememh("output_3.hex", output_mem.mem, 0, 7);
 
         // check the result
         for (i = 0; i < 8; i = i + 1) begin
@@ -92,8 +108,6 @@ module loeffler_dct_8_tb();
             end
         end
 
-        $writememh("scratchpad_mem_state.hex", dct.scratchpad.mem, 0, 23);
-        $writememh("output.hex", output_mem.mem, 0, 7);
         $finish;
     end
 endmodule
