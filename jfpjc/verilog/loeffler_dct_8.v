@@ -203,8 +203,8 @@ module loeffler_dct_8_control_rom(input      [ 5:0] addr,
                                   `OP2_NNEGATE, `OP1_NNEGATE, `OP1_RETAIN, `SRC_SPAD, 5'hxx };
 
             6'd41:    control = { `WRITE_SRC_ADDER, `WRITE_NEN, `WRITE_SPAD, 5'hxx, 3'hx, `OP2_SRC_DC, `OP1_SRC_MUL,   // sp[10] * r2c1sin -> op_latch
-                                  `OP2_NNEGATE, `OP1_NNEGATE, `OP1_RETAIN, `SRC_SPAD, 5'd12 };
-            6'd42:    control = { `WRITE_SRC_ADDER, `WRITE_EN,  `WRITE_OUT, 5'd6, 3'hx, `OP2_SRC_MUL, `OP1_SRC_MEM,   // op_latch + (sp[11] * r2c1cos) -> out[6]
+                                  `OP2_NNEGATE, `OP1_NNEGATE, `OP1_LATCH, `SRC_SPAD, 5'd12 };
+            6'd42:    control = { `WRITE_SRC_ADDER, `WRITE_EN,  `WRITE_OUT, 5'd6, 3'hx, `OP2_SRC_MUL, `OP1_SRC_MEM,   // -op_latch + (sp[11] * r2c1cos) -> out[6]
                                   `OP2_NNEGATE, `OP1_NEGATE, `OP1_LATCH, `SRC_SPAD, 5'd14 };         // sp[12] -> op_latch
 
             6'd43:    control = { `WRITE_SRC_ADDER, `WRITE_EN, `WRITE_SPAD, 5'd20, 3'hx, `OP2_SRC_MEM, `OP1_SRC_DC,    // op_latch + sp[14] -> sp[20]
@@ -321,7 +321,7 @@ module loeffler_dct_8(input             clock,
         if (ucode_read_src) begin
             operand_bus = scratchpad_readdata;
         end else begin
-            operand_bus = {{fetch_data[7]}, fetch_data[7:0]};
+            operand_bus = { {8{fetch_data[7]}}, fetch_data[7:0]};
         end
     end
 
