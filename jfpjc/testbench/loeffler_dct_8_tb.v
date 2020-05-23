@@ -9,10 +9,9 @@ module loeffler_dct_8_tb();
 
     wire [7:0] fetch_data;
     wire [2:0] fetch_addr;
-    wire fetch_clk;
 
     wire [15:0] result_out;
-    wire  [2:0] result_addr;
+    wire  [2:0] result_write_addr;
     wire        result_wren;
     wire        result_clk;
 
@@ -20,26 +19,50 @@ module loeffler_dct_8_tb();
     ice40_ebr #(.addr_width(9), .data_width(8))  data_rom (.din(8'h00),
                                                            .write_en(1'b0),
                                                            .waddr(9'h00),
-                                                           .wclk(clock),
+                                                           .wclk(1'b0),
 
                                                            .raddr({ 6'h0, fetch_addr }),
-                                                           .rclk(fetch_clk),
-                                                            .dout(fetch_data));
+                                                           .rclk(clock),
+                                                           .dout(fetch_data));
+
+
+    wire [4:0] scratchpad_read_addr;
+    wire [15:0] scratchpad_read_data;
+
+    wire [4:0] scratchpad_write_addr;
+    wire       scratchpad_wren;
+    wire [15:0] scratchpad_write_data;
 
     loeffler_dct_8 dct(.clock(clock),
                        .nreset(nreset),
-                       .fetch_data(fetch_data),
+
                        .fetch_addr(fetch_addr),
-                       .fetch_clk(fetch_clk),
-                       .result_out(result_out),
-                       .result_addr(result_addr),
+                       .src_data_in({ {8{fetch_data[7]}}, fetch_data[7:0] }),
+
+                       .scratchpad_read_addr(scratchpad_read_addr),
+                       .scratchpad_read_data(scratchpad_read_data),
+
+                       .result_write_addr(result_write_addr),
                        .result_wren(result_wren),
-                       .result_clk(result_clk));
+                       .result_out(result_out),
+
+                       .scratchpad_write_addr(scratchpad_write_addr),
+                       .scratchpad_wren(scratchpad_wren),
+                       .scratchpad_write_data(scratchpad_write_data));
+
+
+    ice40_ebr #(.addr_width(8), .data_width(16)) scratchpad(.din(scratchpad_write_data),
+                                                            .write_en(scratchpad_wren),
+                                                            .waddr({3'h0, scratchpad_write_addr}),
+                                                            .wclk(clock),
+                                                            .raddr({3'h0, scratchpad_read_addr}),
+                                                            .rclk(clock),
+                                                            .dout(scratchpad_read_data));
 
     ice40_ebr #(.addr_width(8), .data_width(16)) output_mem(.din(result_out),
                                                             .write_en(result_wren),
-                                                            .waddr({5'h0, result_addr}),
-                                                            .wclk(result_clk),
+                                                            .waddr({5'h0, result_write_addr}),
+                                                            .wclk(clock),
                                                             .raddr(8'h0),
                                                             .rclk(1'b0),
                                                             .dout());

@@ -252,20 +252,38 @@ endmodule
  * This hardware component reads bytes sequentially from a memory buffer
  * and computes an 8-element DCT on them.
  *
+ * @input  clock
+ * @input  nreset       Holding this signal low for one full clock cycle will reset the module so it
+ *                      starts at the beginning of a DCT transform.
+ * @input  src_data_in  This bus should be hooked up to an input buffer containing the data that we
+ *                      want to take the DCT of. This module treats the data as if it is signed and
+ *                      in the 7q8 format, with values between [-128, 127] representing values in
+ *                      the range [-0.5, 0.49609375].
+ *                      We expect the input memory to have a one-cycle delay from the time that the
+ *                      address is presented til the time that the requested data is presented on
+ *                      the output bus.
+ * @output fetch_addr   This bus holds the address of the input data that we are trying to fetch.
+ * @output data_out
  *
+ * @output result_addr
+ * @output result_wren
  */
 module loeffler_dct_8(input             clock,
                       input             nreset,
-                      input      [7:0]  fetch_data,
-                      output reg [2:0]  fetch_addr,
-                      output            fetch_clk,
-                      output reg [15:0] result_out,
-                      output      [2:0] result_addr,
-                      output            result_wren,
-                      output            result_clk);
 
-    assign fetch_clk = clock;
-    assign result_clk = clock;
+                      output    [2:0]  fetch_addr,
+                      input     [15:0]  src_data_in,
+
+                      output    [4:0]  scratchpad_read_addr,
+                      input     [15:0]  scratchpad_read_data,
+
+                      output      [2:0] result_write_addr,
+                      output            result_wren,
+                      output reg [15:0] result_out,
+
+                      output     [4:0]  scratchpad_write_addr,
+                      output            scratchpad_wren,
+                      output reg [15:0] scratchpad_write_data);
 
     // control ROM
     reg [5:0] ucode_pc;
@@ -294,34 +312,28 @@ module loeffler_dct_8(input             clock,
                                              ucode_latch_operand1,
                                              ucode_read_src,
                                              ucode_readaddr}));
+    assign fetch_addr = ucode_readaddr[2:0];
 
     assign result_wren = ((ucode_write_dest == `WRITE_OUT) &&
                           (ucode_scratchpad_write_enable == `WRITE_EN));
-    assign result_addr = ucode_scratchpad_writeaddr[2:0];
+    assign result_write_addr = ucode_scratchpad_writeaddr[2:0];
 
-    // Internal scratchpad memory
-    reg  [15:0] scratchpad_writedata;
-    reg         scratchpad_wren;
-    reg  [7:0]  scratchpad_waddr;
-    reg  [7:0]  scratchpad_raddr;
-    wire [15:0] scratchpad_readdata;
-    ice40_ebr #(.addr_width(8), .data_width(16))  scratchpad(.din(scratchpad_writedata),
-                                                             .write_en(scratchpad_wren),
-                                                             .waddr(scratchpad_waddr),
-                                                             .wclk(clock),
-                                                             .raddr(scratchpad_raddr),
-                                                             .rclk(clock),
-                                                             .dout(scratchpad_readdata));
+    assign scratchpad_wren = ((ucode_write_dest == `WRITE_SPAD) &&
+                              (ucode_scratchpad_write_enable == `WRITE_EN));
+    assign scratchpad_write_addr = ucode_scratchpad_writeaddr[4:0];
+    assign scratchpad_read_addr = ucode_readaddr[4:0];
+
 
     wire [8:0] multiplier_consts;
     multiplier_constants mulrom(.select(ucode_coeff_select), .out(multiplier_consts));
 
+
     reg [15:0] operand_bus;
     always @ * begin
         if (ucode_read_src) begin
-            operand_bus = scratchpad_readdata;
+            operand_bus = scratchpad_read_data;
         end else begin
-            operand_bus = { {8{fetch_data[7]}}, fetch_data[7:0]};
+            operand_bus = src_data_in;
         end
     end
 
@@ -340,10 +352,6 @@ module loeffler_dct_8(input             clock,
     end
 
     always @ * begin
-        scratchpad_wren = ucode_scratchpad_write_enable && (ucode_write_dest == `WRITE_SPAD);
-        scratchpad_waddr = { 3'h0, ucode_scratchpad_writeaddr };
-        scratchpad_raddr = { 3'h0, ucode_readaddr };
-        fetch_addr = ucode_readaddr[2:0];
         multiplier_op1 = operand_bus;
     end
 
@@ -369,21 +377,21 @@ module loeffler_dct_8(input             clock,
         end
     end
 
-    reg  [15:0] adder_output;
+    reg  [15:0] arithmetic_result;
     always @* begin
         // adder
         if (ucode_write_src == `WRITE_SRC_ADDER) begin
             case ({ucode_negate_operand2, ucode_negate_operand1})
-                2'b00: adder_output =  operand_latch + operand2;
-                2'b01: adder_output = -operand_latch + operand2;
-                2'b10: adder_output =  operand_latch - operand2;
-                2'b11: adder_output = -operand_latch - operand2;
+                2'b00: arithmetic_result =  operand_latch + operand2;
+                2'b01: arithmetic_result = -operand_latch + operand2;
+                2'b10: arithmetic_result =  operand_latch - operand2;
+                2'b11: arithmetic_result = -operand_latch - operand2;
             endcase
         end else begin
-            adder_output = multiplier_out_7q8;
+            arithmetic_result = multiplier_out_7q8;
         end
-        scratchpad_writedata = adder_output;
-        result_out = (result_wren) ? (adder_output) : (16'h0000);
+        scratchpad_write_data = arithmetic_result;
+        result_out = (result_wren) ? (arithmetic_result) : (16'h0000);
     end
 
 endmodule
