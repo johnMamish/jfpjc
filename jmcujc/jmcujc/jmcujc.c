@@ -41,7 +41,7 @@ static void loeffler_fdct_horizontal_inplace(float* data_in, float* data_out)
     const float block_r2c1_cos = 0.54119610014 * 0.35355339059;   // k * cos((n * pi) / 16) for sqrt(2)c1
     const float block_r2c1_sin = 1.30656296488 * 0.35355339059;   // k * sin((n * pi) / 16) for sqrt(2)c1
     data_out[0]  = (stages[1][0] + stages[1][1]) * 0.25 * 1.41421356237;
-    data_out[4]  = (stages[1][0] - stages[1][1]) * 0.35355339059;
+    data_out[4]  = (stages[1][0] - stages[1][1]) * 0.25 * 1.41421356237;
     data_out[2]  =  stages[1][2] * block_r2c1_cos + stages[1][3] * block_r2c1_sin;   // sqrt2 c6
     data_out[6]  = -stages[1][2] * block_r2c1_sin + stages[1][3] * block_r2c1_cos;
     stages[2][4] = stages[1][4] + stages[1][6];
