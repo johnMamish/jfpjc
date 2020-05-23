@@ -267,6 +267,10 @@ endmodule
  *
  * @output result_addr
  * @output result_wren
+ *
+ * @output finished     This signal goes high one cycle before the DCT is finished. To initiate a
+ *                      new DCT once 'finished' is high, nreset needs to be brought low for one
+ *                      cycle
  */
 module loeffler_dct_8(input             clock,
                       input             nreset,
@@ -283,7 +287,9 @@ module loeffler_dct_8(input             clock,
 
                       output     [4:0]  scratchpad_write_addr,
                       output            scratchpad_wren,
-                      output reg [15:0] scratchpad_write_data);
+                      output reg [15:0] scratchpad_write_data,
+
+                      output reg        finished);
 
     // control ROM
     reg [5:0] ucode_pc;
@@ -360,7 +366,7 @@ module loeffler_dct_8(input             clock,
     always @ (posedge clock) begin
         if (nreset) begin
             // increment ucode program counter
-            ucode_pc <= (ucode_pc < `UCODE_LEN) ? (ucode_pc + 6'h1) : (6'h0);
+            ucode_pc <= (ucode_pc < `UCODE_LEN) ? (ucode_pc + 6'h1) : (ucode_pc);
 
             // operand latch
             if (ucode_latch_operand1) begin
