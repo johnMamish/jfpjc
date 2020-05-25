@@ -33,6 +33,7 @@ module loeffler_dct_8_tb();
     wire       scratchpad_wren;
     wire [15:0] scratchpad_write_data;
 
+    wire dct_done;
     loeffler_dct_8 dct(.clock(clock),
                        .nreset(nreset),
 
@@ -48,7 +49,8 @@ module loeffler_dct_8_tb();
 
                        .scratchpad_write_addr(scratchpad_write_addr),
                        .scratchpad_wren(scratchpad_wren),
-                       .scratchpad_write_data(scratchpad_write_data));
+                       .scratchpad_write_data(scratchpad_write_data),
+                       .finished(dct_done));
 
 
     ice40_ebr #(.addr_width(8), .data_width(16)) scratchpad(.din(scratchpad_write_data),
@@ -89,9 +91,10 @@ module loeffler_dct_8_tb();
         nreset = 1'b0; #3000;
         $readmemh("dct_testcase_1_in.hex", data_rom.mem);
         nreset = 1'b1;
-        while (dct.ucode_pc != 6'd57) begin
+        while (dct_done == 1'b0) begin
             #1000;
         end
+        #1000;
         for (i = 0; i < 8; i = i + 1) begin
             $display("%h", output_mem.mem[i]);
         end
@@ -102,9 +105,10 @@ module loeffler_dct_8_tb();
         nreset = 1'b0; #3000;
         $readmemh("dct_testcase_2_in.hex", data_rom.mem);
         nreset = 1'b1;
-        while (dct.ucode_pc != 6'd57) begin
+        while (dct_done == 1'b0) begin
             #1000;
         end
+        #1000;
         for (i = 0; i < 8; i = i + 1) begin
             $display("%h", output_mem.mem[i]);
         end
@@ -115,9 +119,10 @@ module loeffler_dct_8_tb();
         nreset = 1'b0; #3000;
         $readmemh("dct_testcase_3_in.hex", data_rom.mem);
         nreset = 1'b1;
-        while (dct.ucode_pc != 6'd57) begin
+        while (dct_done == 1'b0) begin
             #1000;
         end
+        #1000;
         for (i = 0; i < 8; i = i + 1) begin
             $display("%h", output_mem.mem[i]);
         end

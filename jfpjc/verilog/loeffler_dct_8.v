@@ -289,7 +289,8 @@ module loeffler_dct_8(input             clock,
                       output            scratchpad_wren,
                       output reg [15:0] scratchpad_write_data,
 
-                      output reg        finished);
+                      output            finished);
+
 
     // control ROM
     reg [5:0] ucode_pc;
@@ -366,7 +367,7 @@ module loeffler_dct_8(input             clock,
     always @ (posedge clock) begin
         if (nreset) begin
             // increment ucode program counter
-            ucode_pc <= (ucode_pc < `UCODE_LEN) ? (ucode_pc + 6'h1) : (ucode_pc);
+            ucode_pc <= (ucode_pc < `UCODE_LEN) ? (ucode_pc + 6'h1) : (`UCODE_LEN);
 
             // operand latch
             if (ucode_latch_operand1) begin
@@ -399,5 +400,8 @@ module loeffler_dct_8(input             clock,
         scratchpad_write_data = arithmetic_result;
         result_out = (result_wren) ? (arithmetic_result) : (16'h0000);
     end
+
+    assign finished = ((ucode_pc == `UCODE_LEN) ||
+                       (ucode_pc == (`UCODE_LEN - 1))) ? (1'b1) : (1'b0);
 
 endmodule
