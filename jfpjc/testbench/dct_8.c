@@ -148,20 +148,33 @@ static void dct8_7q8(const int16_t* input, int16_t* output)
     output[1] = scratchpad[2][4] + scratchpad[2][7];
 }
 
+void print_88(int16_t* dat)
+{
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+            printf("%04x, ", *(uint16_t*)(dat + (i * 8) + j));
+        }
+        printf("\n");
+    }
+    printf("\n");
+}
 
 static void dct88_q8(const int8_t* input, int16_t* output)
 {
-    int16_t intermediate[8][8];
+    int16_t intermediate[64];
 
     for (int i = 0; i < 8; i++) {
-        dct8_q8(input + (i * 8), intermediate[i]);
+        dct8_q8(input + (i * 8), intermediate + (i * 8));
     }
+
+    printf("intermediate\r\n");
+    print_88(intermediate);
 
     for (int i = 0; i < 8; i++) {
         int16_t input_buf[8];
         int16_t output_buf[8];
         for (int j = 0; j < 8; j++) {
-            input_buf[j] = intermediate[j][i];
+            input_buf[j] = *(intermediate + (j * 8) + i);
         }
         dct8_7q8(input_buf, output_buf);
         for (int j = 0; j < 8; j++) {
@@ -190,17 +203,6 @@ const int8_t testcases_8x8[64] =
     -88, -32, -31, -14, -25,  -2,   6,  15,
     -88, -25, -23, -13, -11,  -9,  21,  27
 };
-
-void print_88(int16_t* dat)
-{
-    for (int i = 0; i < 8; i++) {
-        for (int j = 0; j < 8; j++) {
-            printf("%04x, ", *(uint16_t*)(dat + (i * 8) + j));
-        }
-        printf("\n");
-    }
-    printf("\n");
-}
 
 int main(int argc, char** argv)
 {
