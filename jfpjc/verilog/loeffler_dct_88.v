@@ -89,7 +89,7 @@ module loeffler_dct_88(input             clock,
     reg [15:0] dct_1d_src_data_in;
 
     wire [4:0] dct_1d_scratchpad_read_addr;
-    wire [15:0] dct_1d_scratchpad_read_data;
+    reg [15:0] dct_1d_scratchpad_read_data;
 
     wire [2:0] dct_1d_result_write_addr;
     wire       dct_1d_result_wren;
@@ -189,6 +189,16 @@ module loeffler_dct_88(input             clock,
             end
             2'b10: tempmem_write_data = dct_1d_scratchpad_write_data;
             default: tempmem_write_data = 16'hxxxx;
+        endcase
+
+        case (dct_1d_read_src_scratchpad)
+            1'b0: dct_1d_scratchpad_read_data = 16'hxxxx;
+            1'b1: dct_1d_scratchpad_read_data = tempmem_read_data;
+        endcase
+
+        case (result_wren)
+            1'b0: result_write_addr = 6'hxx;
+            1'b1: result_write_addr = rowcol_sweep_write_addr;
         endcase
 
         result_out = dct_1d_result_out;
