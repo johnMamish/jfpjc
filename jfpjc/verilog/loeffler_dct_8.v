@@ -79,7 +79,7 @@ module loeffler_dct_8_control_rom(input      [ 5:0] addr,
         case(addr)
             // next cycle, fetch_data[0] appears on output of EBR
             6'd0:     control = { `WRITE_SRC_ADDER, `WRITE_NEN, `WRITE_SPAD, 5'hxx, 3'hx, `OP2_SRC_MEM, `OP1_SRC_MEM,
-                                  `OP2_NNEGATE, `OP1_NNEGATE,  `OP1_LATCH, `SRC_DC, 5'h00 };
+                                  `OP2_NNEGATE, `OP1_NNEGATE,  `OP1_LATCH, `SRC_FETCH, 5'h00 };
 
             // next cycle, fetch_data[0] is latched in the operand latch
             //             fetch_data[7] appears on output of EBR

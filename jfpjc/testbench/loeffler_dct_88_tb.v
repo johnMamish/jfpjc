@@ -59,6 +59,11 @@ module loeffler_dct_88_tb();
         $dumpfile("loeffler_dct_88_tb.vcd");
         $dumpvars(0, loeffler_dct_88_tb);
 
+        for (i = 0; i < 256; i = i + 1) begin
+            //dct_88.tempmem.mem[i] = 16'hf10f;
+            dct_88.tempmem.mem[i] = 16'hxxxx;
+        end
+
         nreset = 1'b0; #3000;
         $readmemh("dct88_testcase_2_in.hex", data_rom.mem);
         nreset = 1'b1;

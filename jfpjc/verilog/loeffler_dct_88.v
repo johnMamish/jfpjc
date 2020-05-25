@@ -84,6 +84,8 @@ module loeffler_dct_88(input             clock,
     reg       dct_1d_reset;
     reg       dct_1d_finished_edgedetect;
 
+    reg       dct_1d_read_src_delayed;
+
     // Instantiate 1d DCT core
     wire [2:0] dct_1d_fetch_addr;
     reg [15:0] dct_1d_src_data_in;
@@ -191,7 +193,9 @@ module loeffler_dct_88(input             clock,
             default: tempmem_write_data = 16'hxxxx;
         endcase
 
-        case (dct_1d_read_src_scratchpad)
+        // this register needs to be delayed by 1.
+        //case (dct_1d_read_src_scratchpad)
+        case (dct_1d_read_src_delayed)
             1'b0: dct_1d_scratchpad_read_data = 16'hxxxx;
             1'b1: dct_1d_scratchpad_read_data = tempmem_read_data;
         endcase
@@ -228,9 +232,12 @@ module loeffler_dct_88(input             clock,
             end
 
             dct_1d_finished_edgedetect <= dct_1d_finished;
+
+            dct_1d_read_src_delayed <= dct_1d_read_src_scratchpad;
         end else begin
             dct_1d_finished_edgedetect <= 1'b0;
             xform_number <= 4'h0;
+            dct_1d_read_src_delayed <= 1'b0;
         end
     end
 endmodule
