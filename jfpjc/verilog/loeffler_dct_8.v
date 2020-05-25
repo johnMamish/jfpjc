@@ -268,6 +268,12 @@ endmodule
  * @output result_addr
  * @output result_wren
  *
+ * @output read_src_scratchpad    Read src can be either 0 for input memory or 1 for scratchpad. This signal is
+ *                      useful for situations where the input memory and the scratchpad share the
+ *                      same instantiated memory block. Because only one memory will be read from
+ *                      on each cycle, this sort of sharing can be achieved with single read port
+ *                      memories
+ *
  * @output finished     This signal goes high one cycle before the DCT is finished. To initiate a
  *                      new DCT once 'finished' is high, nreset needs to be brought low for one
  *                      cycle
@@ -289,6 +295,7 @@ module loeffler_dct_8(input             clock,
                       output            scratchpad_wren,
                       output reg [15:0] scratchpad_write_data,
 
+                      output            read_src_scratchpad,
                       output            finished);
 
 
@@ -329,7 +336,7 @@ module loeffler_dct_8(input             clock,
                               (ucode_scratchpad_write_enable == `WRITE_EN));
     assign scratchpad_write_addr = ucode_scratchpad_writeaddr[4:0];
     assign scratchpad_read_addr = ucode_readaddr[4:0];
-
+    assign read_src_scratchpad = (ucode_read_src == `SRC_SPAD) ? (1'b1) : (1'b0);
 
     wire [8:0] multiplier_consts;
     multiplier_constants mulrom(.select(ucode_coeff_select), .out(multiplier_consts));

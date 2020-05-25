@@ -50,6 +50,8 @@ module loeffler_dct_8_tb();
                        .scratchpad_write_addr(scratchpad_write_addr),
                        .scratchpad_wren(scratchpad_wren),
                        .scratchpad_write_data(scratchpad_write_data),
+
+                       .read_src_scratchpad(),
                        .finished(dct_done));
 
 
