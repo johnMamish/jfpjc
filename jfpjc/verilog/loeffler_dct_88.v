@@ -13,8 +13,8 @@
  *     index = (8 * (intraline index)) + (line number).
  */
 
-`define ROW_MAJOR 1'b1
-`define COLUMN_MAJOR 1'b0
+`define ROW_MAJOR 1'b0
+`define COLUMN_MAJOR 1'b1
 
 module block_indexer(input  [2:0] intraline_index,
                      input  [2:0]      line_number,
@@ -36,6 +36,25 @@ endmodule
  * The input data is expected in the q8 format, in the range [-128, 127]. The jpeg standard talks
  * about level shifting. See section A.3.1 for details. This module expects that data fed to it has
  * already been level shifted.
+ *
+ * This module works by doing 16 1D DCTs on an 8x8 grid of values. The first 8 DCTs are done in
+ * row-major order on the data, that is:
+ *     DCT #1 is on elements {(0, 0), (0, 1), ... (0, 7)},
+ *            or eqivalently for elements stored in row-major order {0, 1, 2, 3, ... 7}
+ *     DCT #2 is on elements {(1, 0), (1, 1), ... (1, 7)},
+ *            or eqivalently for elements stored in row-major order {8, 9, 10, ...  15}
+ * ...
+ *     DCT #8 is on elements {(7, 0), (7, 1), ... (7, 7)},
+ *            or eqivalently for elements stored in row-major order {56, 57, 58,... 63}
+ *
+ * The final 8 DCTs are on done in column major order, that is:
+ *     DCT #1 is on elements {(0, 0), (1, 0), ... (7, 0)},
+ *            or eqivalently for elements stored in row-major order { 0,  8, 16, 24, ... 56}
+ *     DCT #2 is on elements {(1, 1), (1, 1), ... (7, 1)},
+ *            or eqivalently for elements stored in row-major order { 1,  9, 17, 25, ... 57}
+ * ...
+ *     DCT #8 is on elements {(0, 7), (1, 7), ... (7, 7)},
+ *            or eqivalently for elements stored in row-major order { 7, 15, 23, 31, ... 63}
  */
 module loeffler_dct_88(input             clock,
                        input             nreset,
@@ -49,35 +68,121 @@ module loeffler_dct_88(input             clock,
 
                        output reg        finished);
 
-    reg [15:0] src_data_in_7q8;
-
-    reg [7:0] scratchpad_write_addr;
-    reg [7:0] scratchpad_read_addr;
-
+    // internal flip-flops
     reg [3:0] xform_number;
 
+    // internal signals
+    reg [7:0] tempmem_write_addr;
+    reg [7:0] tempmem_read_addr;
+    reg       tempmem_wren;
+
     reg       dct_1d_reset;
+    reg       dct_1d_finished_edgedetect;
+
+    // Instantiate 1d DCT core
+    wire [2:0] dct_1d_fetch_addr;
+    reg [15:0] dct_1d_src_data_in;
 
     wire [4:0] dct_1d_scratchpad_read_addr;
     wire [15:0] dct_1d_scratchpad_read_data;
+
+    wire [2:0] dct_1d_result_write_addr;
+    wire       dct_1d_result_wren;
+    wire [15:0] dct_1d_result_out;
+
+    wire [4:0] dct_1d_scratchpad_write_addr;
+    wire       dct_1d_scratchpad_wren;
+    wire [15:0] dct_1d_scratchpad_write_data;
+
+    wire dct_1d_read_src_scratchpad;
+    wire dct_1d_finished;
     loeffler_dct_8 dct_1d(.clock(clock),
                           .nreset(dct_1d_reset),
 
-                          .fetch_addr(),
-                          .src_data_in(src_data_in_7q8),
+                          .fetch_addr(dct_1d_fetch_addr),
+                          .src_data_in(dct_1d_src_data_in),
 
                           .scratchpad_read_addr(dct_1d_scratchpad_read_addr),
                           .scratchpad_read_data(dct_1d_scratchpad_read_data),
-                          );
+
+                          .result_write_addr(dct_1d_result_write_addr),
+                          .result_wren(dct_1d_result_wren),
+                          .result_out(dct_1d_result_out),
+
+                          .scratchpad_write_addr(dct_1d_scratchpad_write_addr),
+                          .scratchpad_wren(dct_1d_scratchpad_wren),
+                          .scratchpad_write_data(dct_1d_scratchpad_write_data),
+
+                          .read_src_srcatchpad(dct_1d_read_src_scratchpad),
+                          .finished(dct_1d_finished));
 
 
-    always @ (posedge clock) begin
-        // xform_number
-        if (dct_finished) begin
-            xform_number <= (xform_number + 1);
+    // These wires transform the indexes accessed by the 1-D DCT engine into 2D row- or column-
+    // major indexes depending on what transform we're on.
+    wire [5:0] rowcol_sweep_read_addr;
+    wire [5:0] rowcol_sweep_write_addr;
+    block_indexer read_block_indexer(.intraline_index(xform_number[2:0]),
+                                     .line_number(dct_1d_fetch_addr),
+                                     .row_or_column_major(xform_number[3]),
+                                     .result_index(rowcol_sweep_read_addr));
+    block_indexer read_block_indexer(.intraline_index(xform_number[2:0]),
+                                     .line_number(dct_1d_result_write_addr),
+                                     .row_or_column_major(xform_number[3]),
+                                     .result_index(rowcol_sweep_write_addr));
+
+
+    always @ * begin
+        src_data_in_7q8 = { {8{src_data_in[7]}}, src_data_in[7:0] };
+
+        // The address that we want to read input data from this cycle
+        // TODO: it would be nice if a read enable signal was provided from dct8_1d for power saving
+        fetch_addr = rowcol_sweep_read_addr;
+
+        // The tempmem memory's lower 64 bytes hold row-major 1d DCT results, which sometimes need
+        // to be used as input data to the 1d DCT, so the tempmem read addr depends on whether
+        // the 1d DCT engine is trying to access its temporary scratchpad variables or if it's trying
+        // to access its input data.
+        case (dct_1d_read_src_scratchpad)
+            1'b0: tempmem_read_addr = {2'b00,  rowcol_sweep_read_addr};   // read from tempmem bytes [0, 63]
+            1'b1: tempmem_read_addr = {3'b010, dct_1d_scratchpad_read_addr};  // read from bytes [64, 96]
+        endcase
+
+        case ({ dct_1d_scratchpad_wren, dct_1d_result_wren })
+            2'b01: tempmem_write_addr = {2'b00, rowcol_sweep_write_addr};   // write to bytes [0, 63]
+            2'b10: tempmem_write_addr = {3'b010, dct_1d_scratchpad_write_addr}; // write to bytes [64, 96]
+            default: tempmem_write_addr = 8'hxx;
+        endcase
+
+        tempmem_wren = ((dct_1d_scratchpad_wren) ||
+                        ((xform_number[3] == 1'b0) && (dct_1d_result_wren)));
+        result_wren = ((xform_number[3] == 1'b1) && (dct_1d_result_wren));
+
+        if (result_wren) begin
+            result_out = dct_1d_result_out;
         end else begin
-            xform_number <= xform_number;
+            result_out = 16'hxxxx;
         end
 
+        if (nreset == 1'b0) begin
+            dct_1d_reset = 1'b0;
+        end else begin
+            dct_1d_reset = (~dct_1d_finished && (xform_number != 4'd15));
+        end
 
+        finished = (xform_number == 4'd15) && dct_1d_finished;
     end
+
+    always @ (posedge clock) begin
+        if (nreset) begin
+            // only increment xform_number on rising edge of dct_1d_finished.
+            // xform_number should saturate on reaching 15.
+            if ((dct_1d_finished_edgedetect == 1'b0) && (dct_1d_finished == 1'b1)) begin
+                xform_number <= (xform_number == 4'd15) ? (4'd15) : (xform_number + 1);
+            end else begin
+                xform_number <= xform_number;
+            end
+        end else begin
+            xform_number <= 4'h0;
+        end
+    end
+endmodule
