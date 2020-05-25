@@ -154,7 +154,7 @@ static void dct88_q8(const int8_t* input, int16_t* output)
     int16_t intermediate[8][8];
 
     for (int i = 0; i < 8; i++) {
-        dct8_q8(input + i, intermediate[i]);
+        dct8_q8(input + (i * 8), intermediate[i]);
     }
 
     for (int i = 0; i < 8; i++) {
