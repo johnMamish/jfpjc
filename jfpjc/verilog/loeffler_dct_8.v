@@ -30,6 +30,7 @@ endmodule
 
 `define SRC_FETCH 1'b0
 `define SRC_SPAD 1'b1
+`define SRC_DC   1'bx
 
 `define OP1_RETAIN 1'b0
 `define OP1_LATCH 1'b1
@@ -78,7 +79,7 @@ module loeffler_dct_8_control_rom(input      [ 5:0] addr,
         case(addr)
             // next cycle, fetch_data[0] appears on output of EBR
             6'd0:     control = { `WRITE_SRC_ADDER, `WRITE_NEN, `WRITE_SPAD, 5'hxx, 3'hx, `OP2_SRC_MEM, `OP1_SRC_MEM,
-                                  `OP2_NNEGATE, `OP1_NNEGATE,  `OP1_LATCH, `SRC_FETCH, 5'h00 };
+                                  `OP2_NNEGATE, `OP1_NNEGATE,  `OP1_LATCH, `SRC_DC, 5'h00 };
 
             // next cycle, fetch_data[0] is latched in the operand latch
             //             fetch_data[7] appears on output of EBR
@@ -135,7 +136,7 @@ module loeffler_dct_8_control_rom(input      [ 5:0] addr,
             6'd15:     control = { `WRITE_SRC_ADDER, `WRITE_NEN, `WRITE_SPAD, 5'hxx, 3'hx, `OP2_SRC_MEM, `OP1_SRC_MEM,
                                    `OP2_NNEGATE, `OP1_NNEGATE, `OP1_LATCH, `SRC_FETCH, 5'h07 };
             6'd16:    control = {  `WRITE_SRC_ADDER, `WRITE_EN, `WRITE_SPAD, 5'h07, 3'hx, `OP2_SRC_MEM, `OP1_SRC_MEM,
-                                   `OP2_NEGATE, `OP1_NNEGATE, `OP1_RETAIN, `SRC_FETCH,  5'd00 };
+                                   `OP2_NEGATE, `OP1_NNEGATE, `OP1_RETAIN, `SRC_SPAD,  5'd00 };
 
             // scratchpad[8] = scratchpad[0] + scratchpad[3]
             6'd17:     control = { `WRITE_SRC_ADDER, `WRITE_NEN, `WRITE_SPAD, 5'hxx, 3'hx, `OP2_SRC_MEM, `OP1_SRC_MEM,
@@ -240,7 +241,7 @@ module loeffler_dct_8_control_rom(input      [ 5:0] addr,
             6'd55:    control = { `WRITE_SRC_MUL, `WRITE_EN, `WRITE_OUT, 5'd3, 3'hx, `OP2_SRC_DC, `OP1_SRC_DC,
                                   `OP2_NNEGATE, `OP1_NNEGATE, `OP1_RETAIN, `SRC_SPAD, 5'hxx };
             6'd56:    control = { `WRITE_SRC_MUL, `WRITE_EN, `WRITE_OUT, 5'd5, 3'hx, `OP2_SRC_DC, `OP1_SRC_DC,
-                                  `OP2_NNEGATE, `OP1_NNEGATE, `OP1_RETAIN, `SRC_SPAD, 5'hxx };
+                                  `OP2_NNEGATE, `OP1_NNEGATE, `OP1_RETAIN, `SRC_DC, 5'hxx };
 
             default:  control = 21'h0;
         endcase
@@ -298,6 +299,7 @@ module loeffler_dct_8(input             clock,
                       output            read_src_scratchpad,
                       output            finished);
 
+    reg ucode_read_src_delayed;
 
     // control ROM
     reg [5:0] ucode_pc;
@@ -344,7 +346,7 @@ module loeffler_dct_8(input             clock,
 
     reg [15:0] operand_bus;
     always @ * begin
-        if (ucode_read_src) begin
+        if (ucode_read_src_delayed) begin
             operand_bus = scratchpad_read_data;
         end else begin
             operand_bus = src_data_in;
@@ -385,9 +387,12 @@ module loeffler_dct_8(input             clock,
             end else begin
                 operand_latch <= operand_latch;
             end
+
+            ucode_read_src_delayed <= ucode_read_src;
         end else begin
             ucode_pc <= 'h0;
             operand_latch <= 'h0;
+            ucode_read_src_delayed <= 'hx;
         end
     end
 
