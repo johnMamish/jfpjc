@@ -13,6 +13,8 @@
  *     index = (8 * (intraline index)) + (line number).
  */
 
+`timescale 1ns/100ps
+
 `define ROW_MAJOR 1'b0
 `define COLUMN_MAJOR 1'b1
 
@@ -63,18 +65,21 @@ module loeffler_dct_88(input             clock,
                        input       [7:0] src_data_in,
 
                        output reg  [5:0] result_write_addr,
-                       output reg        result_wren,
+                       output reg  [0:0]  result_wren,
                        output reg [15:0] result_out,
 
-                       output reg        finished);
+                       output reg [0:0]  finished);
 
     // internal flip-flops
     reg [3:0] xform_number;
 
     // internal signals
-    reg [7:0] tempmem_write_addr;
     reg [7:0] tempmem_read_addr;
+    wire [15:0] tempmem_read_data;
+
+    reg [7:0] tempmem_write_addr;
     reg       tempmem_wren;
+    reg [15:0] tempmem_write_data;
 
     reg       dct_1d_reset;
     reg       dct_1d_finished_edgedetect;
@@ -113,8 +118,16 @@ module loeffler_dct_88(input             clock,
                           .scratchpad_wren(dct_1d_scratchpad_wren),
                           .scratchpad_write_data(dct_1d_scratchpad_write_data),
 
-                          .read_src_srcatchpad(dct_1d_read_src_scratchpad),
+                          .read_src_scratchpad(dct_1d_read_src_scratchpad),
                           .finished(dct_1d_finished));
+
+    ice40_ebr #(.addr_width(8), .data_width(16)) tempmem(.din(tempmem_write_data),
+                                                         .write_en(tempmem_wren),
+                                                         .waddr(tempmem_write_addr),
+                                                         .wclk(clock),
+                                                         .raddr(tempmem_read_addr),
+                                                         .rclk(clock),
+                                                         .dout(tempmem_read_data));
 
 
     // These wires transform the indexes accessed by the 1-D DCT engine into 2D row- or column-
@@ -125,14 +138,14 @@ module loeffler_dct_88(input             clock,
                                      .line_number(dct_1d_fetch_addr),
                                      .row_or_column_major(xform_number[3]),
                                      .result_index(rowcol_sweep_read_addr));
-    block_indexer read_block_indexer(.intraline_index(xform_number[2:0]),
-                                     .line_number(dct_1d_result_write_addr),
-                                     .row_or_column_major(xform_number[3]),
-                                     .result_index(rowcol_sweep_write_addr));
+    block_indexer write_block_indexer(.intraline_index(xform_number[2:0]),
+                                      .line_number(dct_1d_result_write_addr),
+                                      .row_or_column_major(xform_number[3]),
+                                      .result_index(rowcol_sweep_write_addr));
 
 
     always @ * begin
-        src_data_in_7q8 = { {8{src_data_in[7]}}, src_data_in[7:0] };
+        //src_data_in = { {8{src_data_in[7]}}, src_data_in[7:0] };
 
         // The address that we want to read input data from this cycle
         // TODO: it would be nice if a read enable signal was provided from dct8_1d for power saving
@@ -157,16 +170,38 @@ module loeffler_dct_88(input             clock,
                         ((xform_number[3] == 1'b0) && (dct_1d_result_wren)));
         result_wren = ((xform_number[3] == 1'b1) && (dct_1d_result_wren));
 
-        if (result_wren) begin
-            result_out = dct_1d_result_out;
+        // If we are doing transforms 0 - 7, we read from the input memory, otherwise, we read
+        // from the intermediate results in temp memory.
+        if (xform_number < 4'h8) begin
+            dct_1d_src_data_in = { {8{src_data_in[7]}}, src_data_in[7:0] };
         end else begin
-            result_out = 16'hxxxx;
+            dct_1d_src_data_in = tempmem_read_data;
         end
+
+        // muxes for data going into temp memory
+        case ({ dct_1d_scratchpad_wren, dct_1d_result_wren })
+            2'b01: begin
+                if (xform_number < 4'h8) begin
+                    tempmem_write_data = dct_1d_result_out;
+                end else begin
+                    tempmem_write_data = 16'hxxxx;
+                end
+            end
+            2'b10: tempmem_write_data = dct_1d_scratchpad_write_data;
+            default: tempmem_write_data = 16'hxxxx;
+        endcase
+
+        result_out = dct_1d_result_out;
+        //result_out = 16'hxxxx;
 
         if (nreset == 1'b0) begin
             dct_1d_reset = 1'b0;
         end else begin
-            dct_1d_reset = (~dct_1d_finished && (xform_number != 4'd15));
+            if (dct_1d_finished && (xform_number != 4'd15)) begin
+                dct_1d_reset = 1'b0;
+            end else begin
+                dct_1d_reset = 1'b1;
+            end
         end
 
         finished = (xform_number == 4'd15) && dct_1d_finished;
@@ -181,7 +216,10 @@ module loeffler_dct_88(input             clock,
             end else begin
                 xform_number <= xform_number;
             end
+
+            dct_1d_finished_edgedetect <= dct_1d_finished;
         end else begin
+            dct_1d_finished_edgedetect <= 1'b0;
             xform_number <= 4'h0;
         end
     end
