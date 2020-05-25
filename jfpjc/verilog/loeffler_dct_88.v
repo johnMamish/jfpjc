@@ -136,12 +136,12 @@ module loeffler_dct_88(input             clock,
     // major indexes depending on what transform we're on.
     wire [5:0] rowcol_sweep_read_addr;
     wire [5:0] rowcol_sweep_write_addr;
-    block_indexer read_block_indexer(.intraline_index(xform_number[2:0]),
-                                     .line_number(dct_1d_fetch_addr),
+    block_indexer read_block_indexer(.intraline_index(dct_1d_fetch_addr),
+                                     .line_number(xform_number[2:0]),
                                      .row_or_column_major(xform_number[3]),
                                      .result_index(rowcol_sweep_read_addr));
-    block_indexer write_block_indexer(.intraline_index(xform_number[2:0]),
-                                      .line_number(dct_1d_result_write_addr),
+    block_indexer write_block_indexer(.intraline_index(dct_1d_result_write_addr),
+                                      .line_number(xform_number[2:0]),
                                       .row_or_column_major(xform_number[3]),
                                       .result_index(rowcol_sweep_write_addr));
 
