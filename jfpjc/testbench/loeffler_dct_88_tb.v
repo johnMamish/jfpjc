@@ -65,10 +65,9 @@ module loeffler_dct_88_tb();
         end
 
         nreset = 1'b0; #3000;
-        $readmemh("dct88_testcase_2_in.hex", data_rom.mem);
         nreset = 1'b1;
-        //while (dct_finished == 1'b0) begin
-        for (i = 0; i < 1000; i = i + 1) begin
+        $readmemh("dct88_testcase_2_in.hex", data_rom.mem);
+        while (dct_finished != 1'b1) begin
             #1000;
         end
         #1000;
