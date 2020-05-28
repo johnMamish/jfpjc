@@ -57,7 +57,13 @@ endmodule // test_huffman_table_dc
 module test_huffman_table_ac(input clock,
                              input [7:0] addr,
 
-                             );
+                             output reg [15:0] huffman_code,
+                             output reg  [3:0] huffman_bitlen,
+
+                             // this one is just here for debugging purposes... we should remove it
+                             // for deployed hardware. Anyways, we could have
+                             // huffman code = 0x0000 and bitlen = 15 be our code for "this one's bad".
+                             output reg  [0:0] huffman_valid);
 
     always @(posedge clock) begin
         case(addr)
@@ -229,6 +235,27 @@ module test_huffman_table_ac(input clock,
     end
 endmodule
 
+/**
+ * Lengths should be the ACTUAL LENGTH, not the length of the code minus 1.
+ */
+module double_bitpacker(input [15:0]  data    [2],
+                        input  [4:0]  lengths [2],
+
+                        output reg [31:0] data_out,
+                        output reg  [5:0] length_out);
+
+    // "the bit width of a shift is always the bit width of the left operand
+    // (see table 5-22 in the 2005 LRM)."
+    // thanks, stackoverflow!!
+    reg [31:0] data1_extend;
+
+    always @* begin
+        data1_extend = { 16'h0, data[1] };
+
+        data_out = data[0] | (data1_extend << lengths[0]);
+        length_out = lengths[0] + lengths[1];
+    end
+endmodule
 
 /**
  * This module expects data to be fed into it with the zig-zag pattern.
@@ -264,18 +291,148 @@ endmodule
  */
 module jpeg_huffman_encode(input clock,
                            input nreset,
+                           input stall,
 
-                           input        input_valid,
-                           input [15:0] src_data_in,
+                           output reg [5:0] fetch_addr,
+                           input signed [15:0] src_data_in,
 
                            output reg [7:0] huffman_read_addr,
                            input     [15:0] huffman_read_code,
                            input      [3:0] huffman_read_bitlen,
 
                            output reg        output_wren,
-                           output reg [3:0]  output_length,
-                           output reg [15:0] output_data);
+                           output reg [4:0]  output_length,
+                           output reg [31:0] output_data);
 
+    reg  [5:0] component_counter;
+    reg [15:0] dc_accumulator;
+
+    ////////////////////////////////////////////////////////////
+    // Registers shared over pipeline stages
+    reg  [5:0] ac_consecutive_zeros_count;
+    reg        do_rollback;
+
+    ////////////////////////////////////////////////////////////
+    // Pipeline fetch stage
+    reg  [5:0] rollback_distance;
+    reg  [5:0] index [0:3];
+    reg        valid [0:3];
+    always @(posedge clock) begin
+        if (nreset) begin
+            if (do_rollback) begin
+                index[0] <= (index[0] - rollback_distance);
+            end else begin
+                index[0] <= index[0] + 6'h01;
+            end
+        end else begin
+            index[0] <= 6'h0;
+            valid[0] <= 1'b1;   // valid[0] isn't really used.
+        end
+    end
+
+    always @* begin
+        rollback_distance = ac_consecutive_zeros_count - 6'h10
+
+        fetch_addr = index[0];
+    end
+
+    ////////////////////////////////////////////////////////////
+    // Pipeline stage 1
+    //
+    // Keep track of DC differential coding
+    // Truncate coeffecient value to coded value
+    reg signed [15:0] dc_prev;
+
+    reg signed [15:0] coefficient_to_encode;
+    wire       [15:0] coded_coefficient;
+    wire        [3:0] coded_coefficient_length;
+    coefficient_encoder coefficient_encoer(.coefficient(coefficient_to_encode),
+                                           .coded_value(coded_coefficient),
+                                           .coded_value_length(coded_coefficient_length));
+
+    always @(posedge clock) begin
+        if (nreset) begin
+            if ((index[1] == 6'h00) && (valid[1])) begin
+                dc_prev <= src_data_in;
+            end else begin
+                dc_prev <= dc_prev;
+            end
+
+            index[1] <= index[0];
+
+            valid[1] <= (!do_rollback) && (!stall);
+        end else begin
+            dc_prev  <= 16'h0000;
+            index[1] <= 6'hx;
+            valid[1] <= 1'b0;
+        end
+    end
+
+    always @* begin
+        if (index[1] == 6'h0) begin
+            coefficient_to_encode = src_data_in - dc_prev;
+        end else begin
+            coefficient_to_encode = src_data_in;
+        end
+    end
+
+    ////////////////////////////////////////////////////////////
+    // Pipeline stage 2
+    //
+    // AC run-length encoding and Huffman lookup
+    reg [15:0] coded_coefficient_reg;
+    reg  [3:0] coded_coefficient_length_reg;
+    reg  [7:0] ac_rrrrssss;
+
+    always @(posedge clock) begin
+        if (nreset) begin
+            coded_coefficient_reg <= coded_coefficient;
+            coded_coefficient_length_reg <= coded_coefficient_length;
+
+            if ((do_rollback) || (index[2] == 6'h00)) begin
+                ac_consecutive_zeros_count <= 6'h00;
+            end else if (valid[2] == 1'b0) begin
+                ac_consecutive_zeros_count <= ac_consecutive_zeros_count;
+            end else begin
+                ac_consecutive_zeros_count <= ac_consecutive_zeros_count + 6'h01;
+            end
+        end else begin
+            coded_coefficient_reg <= 16'hx;
+            coded_coefficient_length_reg <= 4'hx;
+
+            ac_consecutive_zeros_count <= 6'h00;
+
+            index[2] <= 6'hx;
+            valid[2] <= 1'b0;
+        end
+    end
+
+    always @* begin
+        // If we have 16 consecutive 0's followed by a nonzero, we don't REALLY need to roll
+        // anything back, but we need to stall the huffman lookup pipeline by one stage and
+        // emit an rrrrssss = 0xf0. So to keep things simple, we MIGHT as WELL roll back and let
+        // the following value, which will be the first nonzero value after a run of 16 zeros,
+        // re-flow through the pipeline. This just wastes an extra cycle in a rare edge case
+        // (that we need to make sure to exericise in unit tests) and saves a bunch of logic.
+        //
+        // If we were to add the stall, we would have
+        //     (ac_consecutive_zeros_count > 6'h10)
+        // instead of
+        //     (ac_consecutive_zeros_count > 6'h0f)
+        do_rollback = ((coded_coefficient_length_reg != 4'h0) &&
+                       (ac_consecutive_zeros_count > 6'h0f));
+
+        if (do_rollback) begin
+            ac_rrrrssss = 8'hf0;
+        end else begin
+            ac_rrrrssss = { ac_consecutive_zeros_count, coded_coefficient_length_reg };
+        end
+    end
+
+    ////////////////////////////////////////////////////////////
+    // Pipeline stage 3
+    //
+    // writeback
 
 
 endmodule
