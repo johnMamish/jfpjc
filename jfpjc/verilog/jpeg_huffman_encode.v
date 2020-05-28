@@ -238,8 +238,10 @@ endmodule
 /**
  * Lengths should be the ACTUAL LENGTH, not the length of the code minus 1.
  */
-module double_bitpacker(input [15:0]  data    [2],
-                        input  [4:0]  lengths [2],
+module double_bitpacker(input [15:0]  data_0,
+                        input [15:0]  data_1,
+                        input  [4:0]  length_0,
+                        input  [4:0]  length_1,
 
                         output reg [31:0] data_out,
                         output reg  [5:0] length_out);
@@ -250,10 +252,10 @@ module double_bitpacker(input [15:0]  data    [2],
     reg [31:0] data1_extend;
 
     always @* begin
-        data1_extend = { 16'h0, data[1] };
+        data1_extend = { 16'h0, data_1 };
 
-        data_out = data[0] | (data1_extend << lengths[0]);
-        length_out = lengths[0] + lengths[1];
+        data_out = data_0 | (data1_extend << length_0);
+        length_out = length_0 + length_1;
     end
 endmodule
 
@@ -384,6 +386,22 @@ module jpeg_huffman_encode(input clock,
     reg  [3:0] coded_coefficient_length_reg;
     reg  [7:0] ac_rrrrssss;
 
+    wire [15:0] dc_coefficient_length_huffman_code;
+    wire  [3:0] dc_coefficient_length_huffman_length;
+    test_huffman_table_dc dc_huffman_table(.clock(clock),
+                                           .addr(coded_coefficient_length_reg),
+                                           .huffman_code(dc_coefficient_length_huffman_code),
+                                           .huffman_bitlen(dc_coefficient_length_huffman_length),
+                                           .huffman_valid());
+
+    wire [15:0] ac_rrrrssss_huffman_code;
+    wire  [3:0] ac_rrrrssss_huffman_length;
+    test_huffman_table_ac ac_huffman_table(.clock(clock),
+                                           .addr(ac_rrrrssss),
+                                           .huffman_code(ac_rrrrssss_huffman_code),
+                                           .huffman_bitlen(ac_rrrrssss_huffman_length),
+                                           .huffman_valid());
+
     always @(posedge clock) begin
         if (nreset) begin
             coded_coefficient_reg <= coded_coefficient;
@@ -433,6 +451,29 @@ module jpeg_huffman_encode(input clock,
     // Pipeline stage 3
     //
     // writeback
+    reg [15:0] bitpacker_data0;
+    reg [15:0] bitpacker_data1;
+    reg  [4:0] bitpacker_length0;
+    reg  [4:0] bitpacker_length1;
 
+    always @(posedge clock) begin
+        if (nreset) begin
+
+
+        end else begin
+            index[3] <= 6'hxx;
+            valid[3] <= 1'h0;
+        end
+    end
+
+    always @* begin
+        if (index[3] == 6'h00) begin
+            bitpacker_data0 <= dc_coefficient_length_huffman_code;
+            bitpacker_data1 <= dc_coefficient_length_huffman_length;
+            bitpacker_data1 <= dc_coefficient_length_huffman_length;
+        end else begin
+
+        end
+    end
 
 endmodule
