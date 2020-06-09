@@ -1,13 +1,5 @@
 `timescale 1ns/100ps
 
-`ifdef FORMAL
-    `ifdef BITPACKER
-        `define ASSUME assume
-    `else
-        `define ASSUME assert
-    `endif
-`endif
-
 module lsbs_mask(input [5:0] width,
                  output reg [31:0] mask);
     always @* begin
@@ -121,70 +113,4 @@ module bitpacker(input         clock,
         data_out = shift[31:0];
         data_out_valid = bit_accumulator_carry;
     end
-
-`ifdef FORMAL
-
-    cover property (input_length > 0);
-    cover property (data_in != 0);
-    cover property (data_in[31:input_length] != 0);
-
-    // f_past_valid tells us when $past() is valid. Asserts that rely on $past(variable, N) should
-    // be and-ed with (f_past_valid >= N).
-    // It's worth noting that gisselquist's tutorial that introduces f_past_valid only uses
-    // f_past_valid as a boolean, so I wonder how he uses $past(var, N) statements for N != 1.
-    integer f_past_valid;
-    initial f_past_valid = 0;
-    always @(posedge i_clk) begin
-        f_past_valid <= f_past_valid + 1;
-    end
-
-    // Assume that it starts in reset state
-    initial nreset = 1'b0;
-
-    // This is a precondition for the module. We use `ASSUME instead of assert because if this
-    // module is being tested by itself with FV, this restricts the input space, and if it's being
-    // tested as part of a larger system, we will convert it to an assert which will fire if the
-    // preconditions for this module's input are violated.
-    always @* begin
-        assert(input_length <= 6'b10_0000);
-    end
-
-
-    reg f_last_clock;
-    initial f_last_clock = 1'b0;
-    // yosys uses $global_clock to represent things that need to be inspected at every time step.
-    // The below assertions specify that things should only change on the rising edge of the clock.
-    always @($global_clock) begin
-        // As far as I can tell, this tells the FV engine to generate a clock signal on every time
-        // step.
-        assume(clock == !f_last_clock);
-        f_last_clock <= clock;
-
-        // we only expect our inputs to change on the rising edge of the clock.
-        if (!($rose(clock))) begin
-            `ASSUME($stable(nreset));
-            `ASSUME($stable(data_in_valid));
-            `ASSUME($stable(data_in));
-            `ASSUME($stable(input_length));
-            `ASSUME($stable(data_out_valid));
-            `ASSUME($stable(data_out));
-        end
-    end
-
-    always @(posedge clock) begin
-        // we expect all of our internal registers to stay stable when no new data is provided.
-        if ((!data_in_valid) || (input_length == 0)) begin
-            assert($stable(bit_accumulator));
-            assert($stable(output_register));
-            assert($stable(bit_accumulator_register));
-        end
-
-        assert ({bit_accumulator_carry, bit_accumulator_next} == (input_length + bit_accumulator));
-
-        if(f_past_valid > 0) begin
-            assert(data_out_valid == $past(bit_accumulator_valid));
-        end
-    end
-`endif
-
 endmodule
