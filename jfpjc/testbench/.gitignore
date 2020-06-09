@@ -1,3 +1,10 @@
 *.vcd
-loeffler_dct_8_tb
 *.hex
+
+# explicitly exclude testbenches
+loeffler_dct_8_tb
+loeffler_dct_88_tb
+coefficient_encoder_tb
+
+# explicitly exclude executables
+dct8
