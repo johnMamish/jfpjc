@@ -1,94 +1,119 @@
 `timescale 1ns/100ps
 
 module bitpacker_tb();
-`ifdef FORMAL
     reg clock;
     reg nreset;
     reg data_in_valid;
     reg [31:0] data_in;
-    reg [5:0] input_width;
+    reg [5:0] input_length;
 
     wire data_out_valid;
     wire [31:0] data_out;
 
-    (* anyconst *) reg [31:0] data [0:3];
-    (* anyseq *)
-    reg [31:0] out [0:3];
+    reg [31:0] data_in_mem [0:32];
+    reg [31:0] data_out_mem [0:31];
+
+    reg [5:0] lengths [0:255];
 
     bitpacker bp(.clock(clock),
                  .nreset(nreset),
 
                  .data_in_valid(data_in_valid),
                  .data_in(data_in),
-                 .input_width(input_width),
+                 .input_length(input_length),
 
                  .data_out_valid(data_out_valid),
                  .data_out(data_out));
 
-    integer count_cycle; initial count_cycle = 0;
-    integer out_idx; initial out_idx = 0;
-    always @(posedge clock) begin
-        if (data_out_valid) begin
-            out[out_idx] <= data_out;
-            out_idx <= out_idx + 1;
-        end
-
-        if ((!nreset) && data_in_valid) begin
-            in_idx <= in_idx + 1;
-        end
-
-        count_cycle <= count_cycle + 1;
+    // generate clock
+    always begin
+        #250;
+        clock = ~clock;
+        #250;
     end
 
-    initial nreset = 1'b0;
+    integer length_accum;
+    integer test_idx;
+    integer i;
+    integer read_idx;
+    integer read_bit_idx;
+    integer read_number;
+    integer write_idx;
+    integer test_bad;
+    reg [63:0] data_in_concat;
+    initial begin
+        $dumpfile("bitpacker_tb.vcd");
+        $dumpvars(0, bitpacker_tb);
 
-    initial clock = 1'b1;
-    always @($global_clock) begin
-        clock = !clock;
+        for (test_idx = 0; test_idx < 1000; test_idx = test_idx + 1) begin
+            // setup data_in
+            for (i = 0; i < 32; i = i + 1) begin
+                data_in_mem[i] = $urandom;
+                data_out_mem[i] = 32'h0;
+            end
+            data_in_mem[32] = 32'h0;
 
-	if (!$rose(clock))
-	begin
-	    assume($stable(nreset));
-	    assume($stable(data_in_valid));
-	    assume($stable(data_in));
-	    assume($stable(input_width));
-	end
-    end
+            test_bad = 0;
 
-    integer k;
-    always @* begin
-        if (count_cycle <= 1) begin
-            assume(nreset == 0);
-        end begin
-            assume(nreset == 1);
-        end
+            // setup lengths
+            length_accum = 0;
+            i = 0;
+            while (length_accum < (32 * 32)) begin
+                lengths[i] = $urandom % 33;
+                length_accum = length_accum + lengths[i];
+                i = i + 1;
+            end
 
-        if (in_idx >= 4) begin
-            assume(data_in_valid == 0);
-        end
+            for (i = i; i < 256; i = i + 1) begin
+                lengths[i] = 0;
+            end
 
-        if () begin
-        end
+            clock = 'b0;
 
-        if (out_idx >= 4) begin
-            for (k = 0; k < 4; k = k + 1) begin
-                assert(out[k] == data[k]);
+            // test
+            read_idx = 0;
+            read_bit_idx = 0;
+            write_idx = 0;
+            read_number = 0;
+            nreset = 1'b0;
+            #1000;
+            nreset = 1'b1;
+            while (write_idx < 32) begin
+                // calculate inputs by shifting bitsn
+                data_in_valid = 'b1;
+                data_in_concat = { data_in_mem[read_idx + 1], data_in_mem[read_idx] };
+                data_in = data_in_concat >> read_bit_idx;
+                input_length = lengths[read_number];
+
+                // advance read pointer
+                read_bit_idx = read_bit_idx + lengths[read_number];
+                read_number = read_number + 1;
+                while (read_bit_idx >= 32) begin
+                    read_idx = read_idx + 1;
+                    read_bit_idx = read_bit_idx - 32;
+                end
+
+                // advance write pointer if appropriate
+                if (data_out_valid) begin
+                    data_out_mem[write_idx] = data_out;
+                    write_idx = write_idx + 1;
+                end
+                #1000;
+            end
+
+            // check results
+            for (i = 0; i < 32; i++) begin
+                if (data_out_mem[i] != data_in_mem[i]) begin
+                    $display("bad result at loc %d. Expected %h, got %h.", i, data_in_mem[i], data_out_mem[i]);
+                    test_bad = 1;
+                end
+            end
+
+            if (test_bad == 0) begin
+                $display("test %d good", test_idx);
             end
         end
+        $finish;
     end
-
-
-    // This generate statement for cover properties has been adapted from page 94 of
-    // Seligman, Schubert, & Kumar.
-    // I probably need to give it an input with total length at least 528 bits to cover all
-    // of this property.
-    /*genvar i;
-    generate for (i = 0; i <= 32; i = i + 1) begin
-        all_different_lengths: cover property (input_length == i);
-    end*/ // UNMATCHED !!
-
-    //cover
-
-`endif
 
 endmodule

@@ -5,6 +5,8 @@
 loeffler_dct_8_tb
 loeffler_dct_88_tb
 coefficient_encoder_tb
+bitpacker_tb
+jpeg_huffman_encode_tb
 
 # explicitly exclude executables
 dct8
