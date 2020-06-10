@@ -55,6 +55,17 @@ module jpeg_huffman_encode_tb();
         $dumpfile("jpeg_huffman_encode_tb.vcd");
         $dumpvars(0, jpeg_huffman_encode_tb);
 
+        // icarus / gtkwave take a little extra effort to dump array variables
+        for (i = 0; i < 4; i = i + 1) begin
+            $dumpvars(1, huff.index[i]);
+            $dumpvars(1, huff.valid[i]);
+        end
+
+        for (i = 0; i < 2; i = i + 1) begin
+            $dumpvars(1, huff.coded_coefficient_reg[i]);
+            $dumpvars(1, huff.coded_coefficient_length_reg[i]);
+        end
+
         $readmemh("jpeg_huffman_encode_testcase_1_in.hex", sample_memory.mem);
         output_index = 0;
 
@@ -66,6 +77,7 @@ module jpeg_huffman_encode_tb();
         nreset = 'b1;
         for (i = 0; i < 68; i = i + 1) begin
             if (huff_output_wren) begin
+                output_memory[output_index] = 0;
                 output_memory[output_index] = huff_output_data;
                 output_lengths[output_index] = huff_output_length;
                 output_index = output_index + 1;

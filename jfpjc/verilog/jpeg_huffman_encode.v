@@ -351,9 +351,9 @@ module jpeg_huffman_encode(input clock,
     reg signed [15:0] coefficient_to_encode;
     wire       [15:0] coded_coefficient;
     wire        [3:0] coded_coefficient_length;
-    coefficient_encoder coefficient_encoer(.coefficient(coefficient_to_encode),
-                                           .coded_value(coded_coefficient),
-                                           .coded_value_length(coded_coefficient_length));
+    coefficient_encoder coefficient_encoder(.coefficient(coefficient_to_encode),
+                                            .coded_value(coded_coefficient),
+                                            .coded_value_length(coded_coefficient_length));
 
     always @(posedge clock) begin
         if (nreset) begin
@@ -377,10 +377,14 @@ module jpeg_huffman_encode(input clock,
     end
 
     always @* begin
-        if (index[1] == 6'h0) begin
-            coefficient_to_encode = src_data_in - dc_prev;
+        if (nreset) begin
+            if (index[1] == 6'h0) begin
+                coefficient_to_encode = src_data_in - dc_prev;
+            end else begin
+                coefficient_to_encode = src_data_in;
+            end
         end else begin
-            coefficient_to_encode = src_data_in;
+            coefficient_to_encode = 16'hxxxx;
         end
     end
 
@@ -411,8 +415,13 @@ module jpeg_huffman_encode(input clock,
     // TODO: still need to cover special EOB case
     always @(posedge clock) begin
         if (nreset) begin
-            coded_coefficient_reg[0] <= coded_coefficient;
-            coded_coefficient_length_reg[0] <= coded_coefficient_length;
+            if (valid[1]) begin
+                coded_coefficient_reg[0] <= coded_coefficient;
+                coded_coefficient_length_reg[0] <= coded_coefficient_length;
+            end else begin
+                coded_coefficient_reg[0] <= 16'hx;
+                coded_coefficient_length_reg[0] <= 4'hx;
+            end
 
             if (valid[2] == 1'b0) begin
                 ac_consecutive_zeros_count <= ac_consecutive_zeros_count;
@@ -425,6 +434,9 @@ module jpeg_huffman_encode(input clock,
             end else begin
                 ac_consecutive_zeros_count <= ac_consecutive_zeros_count + 6'h01;
             end
+
+            index[2] <= index[1];
+            valid[2] <= valid[1];
         end else begin
             coded_coefficient_reg[0] <= 16'hx;
             coded_coefficient_length_reg[0] <= 4'hx;
@@ -513,13 +525,14 @@ module jpeg_huffman_encode(input clock,
     always @* begin
         if (index[3] == 6'h00) begin
             bit_concatenator_data0 = dc_coefficient_length_huffman_code;
-            bit_concatenator_length0 = dc_coefficient_length_huffman_length;
+            bit_concatenator_length0 = dc_coefficient_length_huffman_length + 5'h1;
             bit_concatenator_data1 = coded_coefficient_reg[1];
             bit_concatenator_length1 = coded_coefficient_length_reg[1];
         end else begin
             bit_concatenator_data0 = ac_rrrrssss_huffman_code;
-            bit_concatenator_length0 = ac_rrrrssss_huffman_length;
-            bit_concatenator_data1 = coded_coefficient;
+            bit_concatenator_length0 = ac_rrrrssss_huffman_length + 5'h1;
+            bit_concatenator_data1 = coded_coefficient_reg[1];
+            bit_concatenator_length1 = coded_coefficient_length_reg[1];
         end
     end
 
