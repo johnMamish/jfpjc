@@ -53,9 +53,9 @@ module jpeg_huffman_encode_tb();
     integer i;
     initial begin
         $dumpfile("jpeg_huffman_encode_tb.vcd");
-        $dumpvars(jpeg_huffman_encode_tb);
+        $dumpvars(0, jpeg_huffman_encode_tb);
 
-        $readmemh("huffman_testcase_1_in.hex", sample_memory.mem);
+        $readmemh("jpeg_huffman_encode_testcase_1_in.hex", sample_memory.mem);
         output_index = 0;
 
         clock = 'b0;
@@ -63,7 +63,7 @@ module jpeg_huffman_encode_tb();
         // strobe reset for a few clock cycles
         nreset = 'b0;
         #2000;
-
+        nreset = 'b1;
         for (i = 0; i < 68; i = i + 1) begin
             if (huff_output_wren) begin
                 output_memory[output_index] = huff_output_data;

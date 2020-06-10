@@ -408,6 +408,7 @@ module jpeg_huffman_encode(input clock,
                                            .huffman_bitlen(ac_rrrrssss_huffman_length),
                                            .huffman_valid());
 
+    // TODO: still need to cover special EOB case
     always @(posedge clock) begin
         if (nreset) begin
             coded_coefficient_reg[0] <= coded_coefficient;
@@ -452,6 +453,9 @@ module jpeg_huffman_encode(input clock,
 
         if (do_rollback) begin
             ac_rrrrssss = 8'hf0;
+        end else if (index[2] == 6'd63) begin
+            // EOB reached.
+            ac_rrrrssss = 8'h0;
         end else begin
             ac_rrrrssss = { ac_consecutive_zeros_count, coded_coefficient_length_reg[0] };
         end
