@@ -294,7 +294,7 @@ endmodule
  */
 module jpeg_huffman_encode(input clock,
                            input nreset,
-                           input stall,
+                           input start,
 
                            output reg [5:0] fetch_addr,
                            input signed [15:0] src_data_in,
@@ -310,7 +310,9 @@ module jpeg_huffman_encode(input clock,
 
                            output reg [0:0]  output_wren,
                            output reg [5:0]  output_length,
-                           output reg [31:0] output_data);
+                           output reg [31:0] output_data,
+
+                           output reg [0:0]  finished);
 
     ////////////////////////////////////////////////////////////
     // Registers shared over pipeline stages
@@ -322,23 +324,41 @@ module jpeg_huffman_encode(input clock,
     reg  [5:0] rollback_distance;
     reg  [5:0] index [0:3];
     reg        valid [0:3];
+    reg        fetch_stage_active;
     always @(posedge clock) begin
         if (nreset) begin
             if (do_rollback) begin
                 index[0] <= (index[2] - rollback_distance);
-            end else begin
+            end else if (fetch_stage_active) begin
                 index[0] <= index[0] + 6'h01;
+            end else begin
+                index[0] <= 6'h0;
             end
+
+            if (start) begin
+                fetch_stage_active <= 1'b1;
+            end else if (do_rollback) begin
+                fetch_stage_active <= 1'b1;
+            end else if (index[0] == 6'h3f) begin
+                fetch_stage_active <= 1'b0;
+            end else begin
+                fetch_stage_active <= fetch_stage_active;
+            end
+
         end else begin
             index[0] <= 6'h0;
-            valid[0] <= 1'b1;   // valid[0] isn't really used.
+            if (start) begin
+                fetch_stage_active <= 1'b1;
+            end else begin
+                fetch_stage_active <= 1'b0;
+            end
         end
     end
 
     always @* begin
         rollback_distance = ac_consecutive_zeros_count - 6'h10;
-
         fetch_addr = index[0];
+        valid[0] = fetch_stage_active;
     end
 
     ////////////////////////////////////////////////////////////
@@ -364,10 +384,10 @@ module jpeg_huffman_encode(input clock,
             end
 
             index[1] <= index[0];
-            if (do_rollback || stall) begin
+            if (do_rollback) begin
                 valid[1] <= 1'b0;
             end else begin
-                valid[1] <= 1'b1;
+                valid[1] <= valid[0];
             end
         end else begin
             dc_prev  <= 16'h0000;
@@ -486,9 +506,10 @@ module jpeg_huffman_encode(input clock,
     reg [15:0] bit_concatenator_data1;
     reg  [4:0] bit_concatenator_length0;
     reg  [4:0] bit_concatenator_length1;
-
+    reg        do_rollback_1;
     always @(posedge clock) begin
         if (nreset) begin
+            do_rollback_1 <= do_rollback;
             index[3] <= index[2];
             valid[3] <= valid[2];
 
@@ -516,6 +537,14 @@ module jpeg_huffman_encode(input clock,
                 end
             end
 
+            if ((index[3] == 6'd63) && (!do_rollback_1)) begin
+                finished <= 1'b1;
+            end else if (start) begin
+                finished <= 1'b0;
+            end else begin
+                finished <= finished;
+            end
+
             if (do_rollback) begin
                 coded_coefficient_reg[1] <= 16'hxxxx;
                 coded_coefficient_length_reg[1] <= 5'h0;
@@ -523,12 +552,14 @@ module jpeg_huffman_encode(input clock,
                 coded_coefficient_reg[1] <= coded_coefficient_reg[0];
                 coded_coefficient_length_reg[1] <= coded_coefficient_length_reg[0];
             end
-        end else begin
+        end else begin // if (nreset)
             index[3] <= 6'hxx;
             valid[3] <= 1'h0;
 
             coded_coefficient_reg[1] <= 16'hxxxx;
             coded_coefficient_length_reg[1] <= 4'hx;
+            finished <= 1'b0;
+            do_rollback_1 <= 1'b0;
         end
     end
 

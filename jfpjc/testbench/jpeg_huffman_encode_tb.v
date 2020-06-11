@@ -3,7 +3,7 @@
 module jpeg_huffman_encode_tb();
     reg clock;
     reg nreset;
-    reg stall;
+    reg start;
 
     wire [5:0] fetch_addr;
     wire signed [15:0] src_data_into_huff;
@@ -11,20 +11,23 @@ module jpeg_huffman_encode_tb();
     wire huff_output_wren;
     wire [5:0] huff_output_length;
     wire [31:0] huff_output_data;
+    wire        finished;
 
     reg [31:0] output_memory [0:127];
     reg [4:0] output_lengths [0:127];
 
     jpeg_huffman_encode huff(.clock(clock),
                              .nreset(nreset),
-                             .stall(1'b0),
+                             .start(start),
 
                              .fetch_addr(fetch_addr),
                              .src_data_in(src_data_into_huff),
 
                              .output_wren(huff_output_wren),
                              .output_length(huff_output_length),
-                             .output_data(huff_output_data));
+                             .output_data(huff_output_data),
+
+                             .finished(finished));
 
     // Memory holding 64 int16_t coefficients.
     //
@@ -66,28 +69,34 @@ module jpeg_huffman_encode_tb();
             $dumpvars(1, huff.coded_coefficient_length_reg[i]);
         end
 
-        $readmemh("jpeg_huffman_encode_testcase_1_in.hextestcase", sample_memory.mem);
+        $readmemh("jpeg_huffman_encode_testcase_2_in.hextestcase", sample_memory.mem);
         output_index = 0;
 
         clock = 'b0;
 
         // strobe reset for a few clock cycles
+        start = 'b1;
         nreset = 'b0;
         #2000;
         nreset = 'b1;
-        for (i = 0; i < 100; i = i + 1) begin
+        start = 'b0;
+        while (finished == 1'b0) begin
             if (huff_output_wren) begin
-                output_memory[output_index] = 0;
-                output_memory[output_index] = huff_output_data;
-                output_lengths[output_index] = huff_output_length;
-                output_index = output_index + 1;
+                $display("packing %h, with length %d", huff.bit_concatenator_data0, huff.bit_concatenator_length0);
+                if (huff.bit_concatenator_length1 > 0) begin
+                    $display("packing %h, with length %d", huff.bit_concatenator_data1, huff.bit_concatenator_length1);
+                end
+                //output_memory[output_index] = 0;
+                //output_memory[output_index] = huff_output_data;
+                //output_lengths[output_index] = huff_output_length;
+                //output_index = output_index + 1;
             end
 
             #1000;
         end
 
-        $writememh("jpeg_huffman_encode_testcase_1_out_values.hex", output_memory);
-        $writememh("jpeg_huffman_encode_testcase_1_out_lengths.hex", output_lengths);
+        $writememh("jpeg_huffman_encode_testcase_2_out_values.hex", output_memory);
+        $writememh("jpeg_huffman_encode_testcase_2_out_lengths.hex", output_lengths);
 
         $finish;
     end
