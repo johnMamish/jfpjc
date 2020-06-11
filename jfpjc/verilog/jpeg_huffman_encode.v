@@ -325,7 +325,7 @@ module jpeg_huffman_encode(input clock,
     always @(posedge clock) begin
         if (nreset) begin
             if (do_rollback) begin
-                index[0] <= (index[0] - rollback_distance);
+                index[0] <= (index[2] - rollback_distance);
             end else begin
                 index[0] <= index[0] + 6'h01;
             end
@@ -436,7 +436,12 @@ module jpeg_huffman_encode(input clock,
             end
 
             index[2] <= index[1];
-            valid[2] <= valid[1];
+
+            if (do_rollback) begin
+                valid[2] <= 1'b0;
+            end else begin
+                valid[2] <= valid[1];
+            end
         end else begin
             coded_coefficient_reg[0] <= 16'hx;
             coded_coefficient_length_reg[0] <= 4'hx;
@@ -465,7 +470,7 @@ module jpeg_huffman_encode(input clock,
 
         if (do_rollback) begin
             ac_rrrrssss = 8'hf0;
-        end else if (index[2] == 6'd63) begin
+        end else if ((index[2] == 6'd63) && (coded_coefficient_length_reg[0] == 'h0)) begin
             // EOB reached.
             ac_rrrrssss = 8'h0;
         end else begin
@@ -511,8 +516,13 @@ module jpeg_huffman_encode(input clock,
                 end
             end
 
-            coded_coefficient_reg[1] <= coded_coefficient_reg[0];
-            coded_coefficient_length_reg[1] <= coded_coefficient_length_reg[0];
+            if (do_rollback) begin
+                coded_coefficient_reg[1] <= 16'hxxxx;
+                coded_coefficient_length_reg[1] <= 5'h0;
+            end else begin
+                coded_coefficient_reg[1] <= coded_coefficient_reg[0];
+                coded_coefficient_length_reg[1] <= coded_coefficient_length_reg[0];
+            end
         end else begin
             index[3] <= 6'hxx;
             valid[3] <= 1'h0;

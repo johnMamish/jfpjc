@@ -66,7 +66,7 @@ module jpeg_huffman_encode_tb();
             $dumpvars(1, huff.coded_coefficient_length_reg[i]);
         end
 
-        $readmemh("jpeg_huffman_encode_testcase_1_in.hex", sample_memory.mem);
+        $readmemh("jpeg_huffman_encode_testcase_1_in.hextestcase", sample_memory.mem);
         output_index = 0;
 
         clock = 'b0;
@@ -75,7 +75,7 @@ module jpeg_huffman_encode_tb();
         nreset = 'b0;
         #2000;
         nreset = 'b1;
-        for (i = 0; i < 68; i = i + 1) begin
+        for (i = 0; i < 100; i = i + 1) begin
             if (huff_output_wren) begin
                 output_memory[output_index] = 0;
                 output_memory[output_index] = huff_output_data;
