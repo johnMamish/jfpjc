@@ -1,0 +1,153 @@
+// These are the quantized DCT coefficients from highfreq.jpg, a testcase 8x8 image that I handcrafted to have a lot of RLE'd zeroes before a non-zero component in the most significant component
+
+fffb
+0002
+0003
+0007
+0008
+0006
+0003
+0007
+
+0003
+0005
+0001
+0004
+0004
+0005
+0003
+0001
+
+0001
+0002
+0003
+0003
+0002
+0001
+0001
+0002
+
+0002
+0001
+0001
+0001
+0000
+0001
+0001
+0001
+
+0001
+0001
+0001
+0000
+0000
+0000
+0001
+0001
+
+0001
+0001
+0000
+0000
+0000
+0000
+0000
+0000
+
+0000
+0000
+0000
+0000
+0000
+0000
+0000
+0000
+
+0000
+0000
+0000
+0000
+0000
+0000
+0000
+ffff
+
+//packing 0004, with length  3 (DC length huff)
+//packing 0002, with length  3 (DC coefficient)
+//packing 0001, with length  2 (AC r4s4 huffcode, coefficients 1 to 1)
+//packing 0002, with length  2 (AC coefficient)
+//packing 0001, with length  2 (AC r4s4 huffcode, coefficients 2 to 2)
+//packing 0003, with length  2 (AC coefficient)
+//packing 0004, with length  3 (AC r4s4 huffcode, coefficients 3 to 3)
+//packing 0007, with length  3 (AC coefficient)
+//packing 000b, with length  4 (AC r4s4 huffcode, coefficients 4 to 4)
+//packing 0008, with length  4 (AC coefficient)
+//packing 0004, with length  3 (AC r4s4 huffcode, coefficients 5 to 5)
+//packing 0006, with length  3 (AC coefficient)
+//packing 0001, with length  2 (AC r4s4 huffcode, coefficients 6 to 6)
+//packing 0003, with length  2 (AC coefficient)
+//packing 0004, with length  3 (AC r4s4 huffcode, coefficients 7 to 7)
+//packing 0007, with length  3 (AC coefficient)
+//packing 0001, with length  2 (AC r4s4 huffcode, coefficients 8 to 8)
+//packing 0003, with length  2 (AC coefficient)
+//packing 0004, with length  3 (AC r4s4 huffcode, coefficients 9 to 9)
+//packing 0005, with length  3 (AC coefficient)
+//packing 0000, with length  2 (AC r4s4 huffcode, coefficients 10 to 10)
+//packing 0001, with length  1 (AC coefficient)
+//packing 0004, with length  3 (AC r4s4 huffcode, coefficients 11 to 11)
+//packing 0004, with length  3 (AC coefficient)
+//packing 0004, with length  3 (AC r4s4 huffcode, coefficients 12 to 12)
+//packing 0004, with length  3 (AC coefficient)
+//packing 0004, with length  3 (AC r4s4 huffcode, coefficients 13 to 13)
+//packing 0005, with length  3 (AC coefficient)
+//packing 0001, with length  2 (AC r4s4 huffcode, coefficients 14 to 14)
+//packing 0003, with length  2 (AC coefficient)
+//packing 0000, with length  2 (AC r4s4 huffcode, coefficients 15 to 15)
+//packing 0001, with length  1 (AC coefficient)
+//packing 0000, with length  2 (AC r4s4 huffcode, coefficients 16 to 16)
+//packing 0001, with length  1 (AC coefficient)
+//packing 0001, with length  2 (AC r4s4 huffcode, coefficients 17 to 17)
+//packing 0002, with length  2 (AC coefficient)
+//packing 0001, with length  2 (AC r4s4 huffcode, coefficients 18 to 18)
+//packing 0003, with length  2 (AC coefficient)
+//packing 0001, with length  2 (AC r4s4 huffcode, coefficients 19 to 19)
+//packing 0003, with length  2 (AC coefficient)
+//packing 0001, with length  2 (AC r4s4 huffcode, coefficients 20 to 20)
+//packing 0002, with length  2 (AC coefficient)
+//packing 0000, with length  2 (AC r4s4 huffcode, coefficients 21 to 21)
+//packing 0001, with length  1 (AC coefficient)
+//packing 0000, with length  2 (AC r4s4 huffcode, coefficients 22 to 22)
+//packing 0001, with length  1 (AC coefficient)
+//packing 0001, with length  2 (AC r4s4 huffcode, coefficients 23 to 23)
+//packing 0002, with length  2 (AC coefficient)
+//packing 0001, with length  2 (AC r4s4 huffcode, coefficients 24 to 24)
+//packing 0002, with length  2 (AC coefficient)
+//packing 0000, with length  2 (AC r4s4 huffcode, coefficients 25 to 25)
+//packing 0001, with length  1 (AC coefficient)
+//packing 0000, with length  2 (AC r4s4 huffcode, coefficients 26 to 26)
+//packing 0001, with length  1 (AC coefficient)
+//packing 0000, with length  2 (AC r4s4 huffcode, coefficients 27 to 27)
+//packing 0001, with length  1 (AC coefficient)
+//packing 000c, with length  4 (AC r4s4 huffcode, coefficients 28 to 29)
+//packing 0001, with length  1 (AC coefficient)
+//packing 0000, with length  2 (AC r4s4 huffcode, coefficients 30 to 30)
+//packing 0001, with length  1 (AC coefficient)
+//packing 0000, with length  2 (AC r4s4 huffcode, coefficients 31 to 31)
+//packing 0001, with length  1 (AC coefficient)
+//packing 0000, with length  2 (AC r4s4 huffcode, coefficients 32 to 32)
+//packing 0001, with length  1 (AC coefficient)
+//packing 0000, with length  2 (AC r4s4 huffcode, coefficients 33 to 33)
+//packing 0001, with length  1 (AC coefficient)
+//packing 0000, with length  2 (AC r4s4 huffcode, coefficients 34 to 34)
+//packing 0001, with length  1 (AC coefficient)
+//packing 003a, with length  6 (AC r4s4 huffcode, coefficients 35 to 38)
+//packing 0001, with length  1 (AC coefficient)
+//packing 0000, with length  2 (AC r4s4 huffcode, coefficients 39 to 39)
+//packing 0001, with length  1 (AC coefficient)
+//packing 0000, with length  2 (AC r4s4 huffcode, coefficients 40 to 40)
+//packing 0001, with length  1 (AC coefficient)
+//packing 0000, with length  2 (AC r4s4 huffcode, coefficients 41 to 41)
+//packing 0001, with length  1 (AC coefficient)
+//packing 07f9, with length  11 (AC 0xf0, coefficients 42 to 57)
+//packing 007a, with length  7 (AC r4s4 huffcode, coefficients 58 to 63)
+//packing 0000, with length  1 (AC coefficient)

@@ -1,0 +1,118 @@
+// These values are in row-major order. The values themselves aren't that important, the run-length
+// encoding between the values is.
+
+//    1    2    3    4    5    6    7    8
+// 0001 0002 0000 0000 0000 0006 0000 0000     0x01
+// 0000 0000 0000 0000 0000 0000 0000 0000     0x09
+// 0011 0000 0000 0014 0000 0000 0000 0018     0x11   (backtrack required here)
+// 0019 0000 0000 0000 0000 0000 001f 0000     0x19
+//
+// 0000 0000 0000 0000 0000 0000 0000 0000
+// 0000 0000 0000 0000 0000 0000 0000 0000
+// 0000 0000 0000 0000 0000 0000 0000 0000
+// 0000 0000 0000 0000 0000 0000 0000 0040
+
+//   {(float)0x1, (float)0x2, (float)0x0, (float)0x0000, (float)0x0000, (float)0x0006, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0011, (float)0x0000, (float)0x0000, (float)0x0014, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0018, (float)0x0019, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x001f, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0000, (float)0x0040};
+
+// expected output is at bottom
+
+//row1
+0001
+0002
+0000
+0000
+0000
+0006
+0000
+0000
+
+//row2
+0000
+0000
+0000
+0000
+0000
+0000
+0000
+0000
+
+//row3
+0011
+0000
+0000
+0014
+0000
+0000
+0000
+0018
+
+//row4
+0019
+0000
+0000
+0000
+0000
+0000
+001f
+0000
+
+//row5
+0000
+0000
+0000
+0000
+0000
+0000
+0000
+0000
+
+//row6
+0000
+0000
+0000
+0000
+0000
+0000
+0000
+0000
+
+//row7
+0000
+0000
+0000
+0000
+0000
+0000
+0000
+0000
+
+//row8
+0000
+0000
+0000
+0000
+0000
+0000
+0000
+0040
+
+//packing 0002, with length  3 (DC length huff)
+//packing 0001, with length  1 (DC coefficient)
+//packing 0001, with length  2 (AC r4s4 huffcode, coefficients 1 to 1)
+//packing 0002, with length  2 (AC coefficient)
+//packing 0ff5, with length  12 (AC r4s4 huffcode, coefficients 2 to 5)
+//packing 0006, with length  3 (AC coefficient)
+//packing ffca, with length  16 (AC r4s4 huffcode, coefficients 6 to 16)
+//packing 0011, with length  5 (AC coefficient)
+//packing ff89, with length  16 (AC r4s4 huffcode, coefficients 17 to 19)
+//packing 0014, with length  5 (AC coefficient)
+//packing ff90, with length  16 (AC r4s4 huffcode, coefficients 20 to 23)
+//packing 0018, with length  5 (AC coefficient)
+//packing 001a, with length  5 (AC r4s4 huffcode, coefficients 24 to 24)
+//packing 0019, with length  5 (AC coefficient)
+//packing ffa0, with length  16 (AC r4s4 huffcode, coefficients 25 to 30)
+//packing 001f, with length  5 (AC coefficient)
+//packing 07f9, with length  11 (AC 0xf0, coefficients 31 to 46)
+//packing 07f9, with length  11 (AC 0xf0, coefficients 47 to 62)
+//packing 00f8, with length  8 (AC r4s4 huffcode, coefficients 63 to 63)
+//packing 0040, with length  7 (AC coefficient)
