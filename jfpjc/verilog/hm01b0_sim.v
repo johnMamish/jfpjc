@@ -26,8 +26,6 @@ module hm01b0_sim(input      nreset,
                   output reg vsync);
     assign clock = mclk;
 
-    parameter output_freq = 750000;
-
     reg [7:0] hm01b0_image [0:((320 * 240) - 1)];
 
     reg [16:0] ptrx;
