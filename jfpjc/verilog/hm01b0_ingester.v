@@ -51,7 +51,10 @@ module hm01b0_ingester #(parameter width_pix = 320,
         if (nreset) begin
             hm01b0_pixclk_prev <= hm01b0_pixclk;
 
-            if (hm01b0_pixclk && !hm01b0_pixclk_prev) begin
+            // mind the edge direction: sparkfun code seems to think that this is rising edge, but
+            // other sources disagree.
+            if ((hm01b0_pixclk && !hm01b0_pixclk_prev) &&
+                (hm01b0_hsync)) begin
                 wren <= 1'b1;
                 output_pixval <= hm01b0_pixdata + 8'h80;
             end else begin

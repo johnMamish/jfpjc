@@ -35,15 +35,13 @@ module hm01b0_sim(input      mclk,
 
     always @ (posedge mclk) begin
         if (nreset) begin
-            //if (ptrx == ((`WIDTH + `HPADDING) - 1)) begin
-            if (ptrx == 16'd329) begin
+            if (ptrx == ((`WIDTH + `HPADDING) - 1)) begin
                 ptrx <= 16'h0;
             end else begin
                 ptrx <= ptrx + 16'h1;
             end
 
-            //if (ptrx == ((`WIDTH + `HPADDING) - 1)) begin
-            if (ptrx == 16'd329) begin
+            if (ptrx == ((`WIDTH + `HPADDING) - 1)) begin
                 if (ptry == ((`HEIGHT + `VPADDING) - 1)) begin
                     ptry <= 16'h0;
                 end else begin

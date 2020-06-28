@@ -94,10 +94,14 @@ module hm01b0_ingester_tb();
         nreset = 1'b1;
 
         //while (!((hm01b0_vsync == 0) && (hm01b0_hsync == 0))) begin
-        while (!((hm01b0_hsync == 0))) begin
-            #1000;
+        for (i = 0; i < 8; i = i + 1) begin
+            while (!((hm01b0_hsync == 0))) begin
+                #1000;
+            end
+            while (!((hm01b0_hsync == 1))) begin
+                #1000;
+            end
         end
-        #50000;
 
         $writememh("hm01b0_ingester_0.hex", ebrs[0].jpeg_buffer.mem);
         $writememh("hm01b0_ingester_1.hex", ebrs[1].jpeg_buffer.mem);
