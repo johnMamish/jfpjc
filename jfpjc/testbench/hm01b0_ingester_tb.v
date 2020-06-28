@@ -46,10 +46,16 @@ module hm01b0_ingester_tb();
 
     genvar gi;
     integer gij;
-    wire block_wren[0:4];
+    wire block_wren[0:9];
     generate
-        for (gi = 0; gi < 5; gi = gi + 1) begin: ebrs
-            assign block_wren[gi] = ((output_ebr_select == gi) && wren);
+        for (gi = 0; gi < 10; gi = gi + 1) begin: ebrs
+            if (gi < 5) begin
+                assign block_wren[gi] = (((output_ebr_select == (gi % 5)) && wren) &&
+                                         (frontbuffer_select == 1'h0));
+            end else begin
+                assign block_wren[gi] = (((output_ebr_select == (gi % 5)) && wren) &&
+                                         (frontbuffer_select == 1'h1));
+            end
             ice40_ebr jpeg_buffer(.din(output_pixval),
                                   .write_en(block_wren[gi]),
                                   .waddr(output_write_addr),
@@ -93,8 +99,9 @@ module hm01b0_ingester_tb();
         #5000;
         nreset = 1'b1;
 
-        //while (!((hm01b0_vsync == 0) && (hm01b0_hsync == 0))) begin
-        for (i = 0; i < 8; i = i + 1) begin
+        // read some number of lines
+`define LINES_TO_READ 24
+        for (i = 0; i < `LINES_TO_READ; i = i + 1) begin
             while (!((hm01b0_hsync == 0))) begin
                 #1000;
             end
@@ -105,6 +112,10 @@ module hm01b0_ingester_tb();
 
         $writememh("hm01b0_ingester_0.hex", ebrs[0].jpeg_buffer.mem);
         $writememh("hm01b0_ingester_1.hex", ebrs[1].jpeg_buffer.mem);
+        $writememh("hm01b0_ingester_2.hex", ebrs[2].jpeg_buffer.mem);
+        $writememh("hm01b0_ingester_3.hex", ebrs[3].jpeg_buffer.mem);
+        $writememh("hm01b0_ingester_4.hex", ebrs[4].jpeg_buffer.mem);
+
         $finish;
     end
 endmodule
