@@ -3,6 +3,9 @@
  * Lattice's Technical Note TN1250. It is copyright Lattice, NOT mine.
  */
 
+`ifndef ICE40_EBR_V
+`define ICE40_EBR_V
+
 `timescale 1ns/100ps
 
 module ice40_ebr (din, write_en, waddr, wclk, raddr, rclk, dout);//512x8
@@ -25,3 +28,5 @@ module ice40_ebr (din, write_en, waddr, wclk, raddr, rclk, dout);//512x8
         dout <= mem[raddr]; // Using read address bus.
     end
 endmodule
+
+`endif

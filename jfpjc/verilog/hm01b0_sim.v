@@ -8,6 +8,9 @@
  * the output clock will be the same as the input clock
  */
 
+`ifndef HM01B0_SIM_V
+`define HM01B0_SIM_V
+
 `timescale 1ns/100ps
 
 `define WIDTH (320)
@@ -16,30 +19,31 @@
 `define HPADDING (20)
 `define VPADDING (2)
 
-module hm01b0_sim(input      nreset,
-                  input      mclk,
+module hm01b0_sim(input      mclk,
+                  input      nreset,
 
                   output reg clock,
-                  output reg [7:0] pixdata,
+                  output wire [7:0] pixdata,
 
                   output reg hsync,
                   output reg vsync);
-    assign clock = mclk;
 
     reg [7:0] hm01b0_image [0:((320 * 240) - 1)];
 
-    reg [16:0] ptrx;
-    reg [16:0] ptry;
+    reg [15:0] ptrx;
+    reg [15:0] ptry;
 
     always @ (posedge mclk) begin
         if (nreset) begin
-            if (ptrx == ((`WIDTH + `HPADDING) - 1)) begin
+            //if (ptrx == ((`WIDTH + `HPADDING) - 1)) begin
+            if (ptrx == 16'd329) begin
                 ptrx <= 16'h0;
             end else begin
-                ptrx <= ptrx + 1;
+                ptrx <= ptrx + 16'h1;
             end
 
-            if (ptrx == ((`WIDTH + `HPADDING) - 1)) begin
+            //if (ptrx == ((`WIDTH + `HPADDING) - 1)) begin
+            if (ptrx == 16'd329) begin
                 if (ptry == ((`HEIGHT + `VPADDING) - 1)) begin
                     ptry <= 16'h0;
                 end else begin
@@ -55,15 +59,21 @@ module hm01b0_sim(input      nreset,
         end
     end
 
-    always @* begin
-        if ((ptrx < `WIDTH) && (ptry < `HEIGHT)) begin
-            pixdata <= hm01b0_image[(ptry * `WIDTH) + ptrx];
-        end else begin
-            pixdata <= 8'hxx;
-        end
+    // for some reason, putting hm01b0_image (an array of 76800 items) inside an always @* block
+    // really upsets iverilog, so we need to use these assign statements on pixdata.
+    assign pixdata = ((ptrx < `WIDTH) && (ptry < `HEIGHT)) ?
+                     hm01b0_image[(ptry * `WIDTH) + ptrx] :
+                     8'hxx;
 
+    always @* begin
         // Unclear if this is the right vsync/hsync behavior. Need to check with a scope.
         hsync = (ptrx < `WIDTH) ? (1'b1) : (1'b0);
         vsync = (ptry < `HEIGHT) ? (1'b1) : (1'b0);
     end
+
+    always @* begin
+        clock = mclk;
+    end
 endmodule
+
+`endif
