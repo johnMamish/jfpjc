@@ -97,8 +97,8 @@ module jfpjc(input                      nreset,
         for (dcts_i = 0; dcts_i < 5; dcts_i = dcts_i + 1) begin: dcts
             wire [5:0] dct_result_write_addr;
             wire       dct_result_wren;
-            wire [7:0] src_data_in;
-            assign src_data_in = ((ingester_frontbuffer_select + 1'h1) == 'h0) ?
+            wire signed [7:0] src_data_in;
+            assign src_data_in = ((ingester_frontbuffer_select + 1'h1) == 1'h0) ?
                                  ingester_block_dout[dcts_i] :
                                  ingester_block_dout[dcts_i + 5];
             wire signed [15:0] dct_result_out;
@@ -127,8 +127,9 @@ module jfpjc(input                      nreset,
 
         for (dcts_i = 0; dcts_i < 5; dcts_i = dcts_i + 1) begin: dct_addrs
             always @* begin
-                dct_buffer_fetch_addr[dcts_i] = (dct_fetch_addr[dcts_i] +
-                                                 ({6'h0, mcu_groups_processed} << 6));
+                //dct_buffer_fetch_addr[dcts_i] = (dct_fetch_addr[dcts_i] +
+                //({6'h0, mcu_groups_processed} << 6));
+                dct_buffer_fetch_addr[dcts_i] = { mcu_groups_processed, dct_fetch_addr[dcts_i] };
             end
         end
     endgenerate

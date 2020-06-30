@@ -43,6 +43,11 @@ module jfpjc_tb();
 
         $readmemh("./pictures/checkerboard_highfreq.hex", hm01b0.hm01b0_image);
 
+        for (i = 0; i < 5; i = i + 1) begin
+            $dumpvars(1, compressor.dct_buffer_fetch_addr[i]);
+        end
+
+
         //
         clock = 1'b0;
         hm01b0_mclk = 1'b0;
@@ -61,11 +66,11 @@ module jfpjc_tb();
             end
         end
 
-        $writememh("hm01b0_ingester_0.hex", compressor.dcts[0].dct_output_mem.mem);
-        $writememh("hm01b0_ingester_1.hex", compressor.dcts[1].dct_output_mem.mem);
-        $writememh("hm01b0_ingester_2.hex", compressor.dcts[2].dct_output_mem.mem);
-        $writememh("hm01b0_ingester_3.hex", compressor.dcts[3].dct_output_mem.mem);
-        $writememh("hm01b0_ingester_4.hex", compressor.dcts[4].dct_output_mem.mem);
+        $writememh("jfpjc_ingester_0.hex", compressor.ebrs[0].jpeg_buffer.mem);
+        $writememh("jfpjc_ingester_1.hex", compressor.ebrs[1].jpeg_buffer.mem);
+        $writememh("jfpjc_ingester_2.hex", compressor.ebrs[2].jpeg_buffer.mem);
+        $writememh("jfpjc_ingester_3.hex", compressor.ebrs[3].jpeg_buffer.mem);
+        $writememh("jfpjc_ingester_4.hex", compressor.ebrs[4].jpeg_buffer.mem);
         $finish;
     end
 endmodule
