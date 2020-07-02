@@ -36,13 +36,51 @@ module jfpjc_tb();
         #250; clock = ~clock; #250;
     end
 
+    // empty out DCT output buffers whenever a new result is available.
+    reg signed [15:0] dct_result [0:(320 * 240) - 1];
+    integer outbuf_idx; initial outbuf_idx = 0;
+    always @(posedge clock) begin : DCT_ingestion
+        integer j;
+        reg [1:0] dcts_frontbuffer_prev;
+        dcts_frontbuffer_prev <= compressor.dcts_frontbuffer;
+
+        if (dcts_frontbuffer_prev != compressor.dcts_frontbuffer) begin
+            // Wish I could do this with a for loop; I'm sure there's a verilog trick, but I
+            // don't know how right now. Right now, verilog is telling me that I can't index
+            // compressor.dcts with a variable because it's a scope index expression.
+            //
+            // There's definately a way to do it with a generate block, but I'll do it later.
+            for (j = 0; j < 64; j = j + 1) begin
+                dct_result[outbuf_idx] = compressor.dcts[0].dct_output_mem.mem[j + (dcts_frontbuffer_prev * 64)];
+                outbuf_idx = outbuf_idx + 1;
+            end
+            for (j = 0; j < 64; j = j + 1) begin
+                dct_result[outbuf_idx] = compressor.dcts[1].dct_output_mem.mem[j + (dcts_frontbuffer_prev * 64)];
+                outbuf_idx = outbuf_idx + 1;
+            end
+            for (j = 0; j < 64; j = j + 1) begin
+                dct_result[outbuf_idx] = compressor.dcts[2].dct_output_mem.mem[j + (dcts_frontbuffer_prev * 64)];
+                outbuf_idx = outbuf_idx + 1;
+            end
+            for (j = 0; j < 64; j = j + 1) begin
+                dct_result[outbuf_idx] = compressor.dcts[3].dct_output_mem.mem[j + (dcts_frontbuffer_prev * 64)];
+                outbuf_idx = outbuf_idx + 1;
+            end
+            for (j = 0; j < 64; j = j + 1) begin
+                dct_result[outbuf_idx] = compressor.dcts[4].dct_output_mem.mem[j + (dcts_frontbuffer_prev * 64)];
+                outbuf_idx = outbuf_idx + 1;
+            end
+        end
+    end
+
     integer i, j, k;
     reg signed [15:0] dct_testmem [0:(320 * 240) - 1];
     initial begin
         $dumpfile("jfpjc_tb.vcd");
         $dumpvars(0, jfpjc_tb);
 
-        $readmemh("../pictures/checkerboard_highfreq.hex", hm01b0.hm01b0_image);
+        $readmemh("../pictures/boat_gray.hex", hm01b0.hm01b0_image);
+        $image_take_dcts(hm01b0.hm01b0_image, dct_testmem, 320, 240);
 
         for (i = 0; i < 5; i = i + 1) begin
             $dumpvars(1, compressor.dct_buffer_fetch_addr[i]);
@@ -57,7 +95,7 @@ module jfpjc_tb();
         nreset = 1'b1;
 
         // read some number of lines in
-`define LINES_TO_READ 15
+`define LINES_TO_READ 240
         for (i = 0; i < `LINES_TO_READ; i = i + 1) begin
             while (!((hm01b0_hsync == 0))) begin
                 #1000;
@@ -67,25 +105,18 @@ module jfpjc_tb();
             end
         end
 
-        $writememh("jfpjc_ingester_0.hex", compressor.ebrs[0].jpeg_buffer.mem);
+        for (i = 0; i < (320 * 10 * 8); i = i + 1) begin
+            if (dct_result[i] != dct_testmem[i]) begin
+                $display("foodct_result[%d] = %h; groundtruth[%d] = %h", i, dct_result[i], i, dct_testmem[i]);
+            end
+        end
+
+        /*$writememh("jfpjc_ingester_0.hex", compressor.ebrs[0].jpeg_buffer.mem);
         $writememh("jfpjc_ingester_1.hex", compressor.ebrs[1].jpeg_buffer.mem);
         $writememh("jfpjc_ingester_2.hex", compressor.ebrs[2].jpeg_buffer.mem);
         $writememh("jfpjc_ingester_3.hex", compressor.ebrs[3].jpeg_buffer.mem);
-        $writememh("jfpjc_ingester_4.hex", compressor.ebrs[4].jpeg_buffer.mem);
+        $writememh("jfpjc_ingester_4.hex", compressor.ebrs[4].jpeg_buffer.mem);*/
 
-        // test image_take_dcts function
-        $image_take_dcts(hm01b0.hm01b0_image, dct_testmem, 320, 240);
-
-        for (i = 0; i < 4; i = i + 1) begin
-            for (j = 0; j < 8; j = j + 1) begin
-                for (k = 0; k < 8; k = k + 1) begin
-                    $write("%h ", dct_testmem[(i * 64) + (j * 8) + k]);
-                end
-                $write("\n");
-            end
-            $write("\n");
-        end
-        $write("\n");
         $finish;
     end
 endmodule
