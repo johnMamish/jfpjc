@@ -1,13 +1,6 @@
 *.vcd
 *.hex
-
-# explicitly exclude testbenches
-loeffler_dct_8_tb
-loeffler_dct_88_tb
-coefficient_encoder_tb
-bitpacker_tb
-jpeg_huffman_encode_tb
-hm01b0_ingester_tb
+*.vvp
 
 # explicitly exclude executables
 dct8
