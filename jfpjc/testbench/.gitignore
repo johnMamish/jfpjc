@@ -1,6 +1,8 @@
 *.vcd
 *.hex
 *.vvp
+*.o
+*.vpi
 
 # explicitly exclude executables
 dct8
