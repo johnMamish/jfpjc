@@ -41,9 +41,28 @@ module jfpjc_tb();
     integer outbuf_idx; initial outbuf_idx = 0;
     always @(posedge clock) begin : DCT_ingestion
         integer j;
+        `define _ENABLE_DCT_INGESTION_QUANT
+`ifdef _ENABLE_DCT_INGESTION_QUANT
+        reg [1:0] quantizer_output_buffer_prev;
+
+        if (compressor.quotient_valid) begin
+            //quantizer_output_buffer_prev <= compressor.quantizer_output_buffer;
+            quantizer_output_buffer_prev <= compressor.quotient_tag[7:6];
+        end else begin
+            quantizer_output_buffer_prev <= quantizer_output_buffer_prev;
+        end
+
+        if ((quantizer_output_buffer_prev != compressor.quotient_tag[7:6])) begin
+            for (j = 0; j < 64; j = j + 1) begin
+                dct_result[outbuf_idx] =
+                     compressor.quotient_output_mem.mem[j + (quantizer_output_buffer_prev * 64)];
+                outbuf_idx = outbuf_idx + 1;
+            end
+        end
+`else
+
         reg [1:0] dcts_frontbuffer_prev;
         dcts_frontbuffer_prev <= compressor.dcts_frontbuffer;
-
         if (dcts_frontbuffer_prev != compressor.dcts_frontbuffer) begin
             // Wish I could do this with a for loop; I'm sure there's a verilog trick, but I
             // don't know how right now. Right now, verilog is telling me that I can't index
@@ -71,19 +90,26 @@ module jfpjc_tb();
                 outbuf_idx = outbuf_idx + 1;
             end
         end
+`endif
     end
 
     integer i, j, k;
     reg signed [15:0] dct_testmem [0:(320 * 240) - 1];
+    reg signed [15:0] test;
+    reg signed [7:0] test2;
     initial begin
         $dumpfile("jfpjc_tb.vcd");
         $dumpvars(0, jfpjc_tb);
 
-        $readmemh("../pictures/boat_gray.hex", hm01b0.hm01b0_image);
+        $readmemh("../pictures/checkerboard_highfreq.hex", hm01b0.hm01b0_image);
         $image_take_dcts(hm01b0.hm01b0_image, dct_testmem, 320, 240);
 
         for (i = 0; i < 5; i = i + 1) begin
             $dumpvars(1, compressor.dct_buffer_fetch_addr[i]);
+        end
+
+        for (i = 0; i < 64; i = i + 1) begin
+            compressor.quantization_table_ebr.mem[i] = 8'h1;
         end
 
 
@@ -95,7 +121,7 @@ module jfpjc_tb();
         nreset = 1'b1;
 
         // read some number of lines in
-`define LINES_TO_READ 240
+`define LINES_TO_READ (8 * 8)
         for (i = 0; i < `LINES_TO_READ; i = i + 1) begin
             while (!((hm01b0_hsync == 0))) begin
                 #1000;
@@ -105,11 +131,32 @@ module jfpjc_tb();
             end
         end
 
-        for (i = 0; i < (320 * 10 * 8); i = i + 1) begin
-            if (dct_result[i] != dct_testmem[i]) begin
-                $display("foodct_result[%d] = %h; groundtruth[%d] = %h", i, dct_result[i], i, dct_testmem[i]);
-            end
+        for (i = 0; i < (64 * 40 * 7); i = i + 1) begin
+            //if (dct_result[i] !== dct_testmem[i]) begin
+            //$display("%h;%h", i, dct_result[i], i, dct_testmem[i] / 2);
+            $write("%d,", dct_result[i]);
+            //end
+/*            if (dct_result[i] !== (i % 64)) begin
+                $display("dct_result[%d] = %d", i, dct_result[i]);
+            end*/
         end
+        $display();
+        for (i = 0; i < (64 * 40 * 7); i = i + 1) begin
+            //if (dct_result[i] !== dct_testmem[i]) begin
+            //$display("%h;%h", i, dct_result[i], i, dct_testmem[i] / 2);
+            $write("%d,", dct_testmem[i]);
+            //end
+            /*            if (dct_result[i] !== (i % 64)) begin
+             $display("dct_result[%d] = %d", i, dct_result[i]);
+            end*/
+        end
+
+        test = 16'hfffc;
+        test2 = 'h2;
+        $display("-4 / 2 is %h", test / test2);
+        test = 16'hfff8;
+        test2 = 'h3;
+        $display("-8 / 3 is %h", test / test2);
 
         /*$writememh("jfpjc_ingester_0.hex", compressor.ebrs[0].jpeg_buffer.mem);
         $writememh("jfpjc_ingester_1.hex", compressor.ebrs[1].jpeg_buffer.mem);

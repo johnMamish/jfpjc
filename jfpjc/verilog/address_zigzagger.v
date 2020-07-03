@@ -1,3 +1,7 @@
+
+
+`timescale 1ns/100ps
+
 /**
  * Given an address in row-major order, this module outputs the "zig-zag" index. For instance, the
  * pixel at location (row = 2, col = 3) is index 19 in row-major indexing and is index 17 in the
@@ -99,85 +103,85 @@ module zig_zag_to_row_major(input [5:0] zig_zag_index,
     // It took me like 10 minutes to make this table because the octal numbers make everything easy when
     // talking about row-major indexes in an 8x8 block.
     always @* begin
-        case(row_major_index)
-            6'd0 : zig_zag_index = 6'o 0_0;
+        case(zig_zag_index)
+            6'd0 : row_major_index = 6'o 0_0;
 
-            6'd1 : zig_zag_index = 6'o 0_1;
-            6'd2 : zig_zag_index = 6'o 1_0;
+            6'd1 : row_major_index = 6'o 0_1;
+            6'd2 : row_major_index = 6'o 1_0;
 
-            6'd3 : zig_zag_index = 6'o 2_0;
-            6'd4 : zig_zag_index = 6'o 1_1;
-            6'd5 : zig_zag_index = 6'o 0_2;
+            6'd3 : row_major_index = 6'o 2_0;
+            6'd4 : row_major_index = 6'o 1_1;
+            6'd5 : row_major_index = 6'o 0_2;
 
-            6'd6 : zig_zag_index = 6'o 0_3;
-            6'd7 : zig_zag_index = 6'o 1_2;
-            6'd8 : zig_zag_index = 6'o 2_1;
-            6'd9 : zig_zag_index = 6'o 3_0;
+            6'd6 : row_major_index = 6'o 0_3;
+            6'd7 : row_major_index = 6'o 1_2;
+            6'd8 : row_major_index = 6'o 2_1;
+            6'd9 : row_major_index = 6'o 3_0;
 
-            6'd10: zig_zag_index = 6'o 4_0;
-            6'd11: zig_zag_index = 6'o 3_1;
-            6'd12: zig_zag_index = 6'o 2_2;
-            6'd13: zig_zag_index = 6'o 1_3;
-            6'd14: zig_zag_index = 6'o 0_4;
+            6'd10: row_major_index = 6'o 4_0;
+            6'd11: row_major_index = 6'o 3_1;
+            6'd12: row_major_index = 6'o 2_2;
+            6'd13: row_major_index = 6'o 1_3;
+            6'd14: row_major_index = 6'o 0_4;
 
-            6'd15: zig_zag_index = 6'o 0_5;
-            6'd16: zig_zag_index = 6'o 1_4;
-            6'd17: zig_zag_index = 6'o 2_3;
-            6'd18: zig_zag_index = 6'o 3_2;
-            6'd19: zig_zag_index = 6'o 4_1;
-            6'd20: zig_zag_index = 6'o 5_0;
+            6'd15: row_major_index = 6'o 0_5;
+            6'd16: row_major_index = 6'o 1_4;
+            6'd17: row_major_index = 6'o 2_3;
+            6'd18: row_major_index = 6'o 3_2;
+            6'd19: row_major_index = 6'o 4_1;
+            6'd20: row_major_index = 6'o 5_0;
 
-            6'd21: zig_zag_index = 6'o 6_0;
-            6'd22: zig_zag_index = 6'o 5_1;
-            6'd23: zig_zag_index = 6'o 4_2;
-            6'd24: zig_zag_index = 6'o 3_3;
-            6'd25: zig_zag_index = 6'o 2_4;
-            6'd26: zig_zag_index = 6'o 1_5;
-            6'd27: zig_zag_index = 6'o 0_6;
+            6'd21: row_major_index = 6'o 6_0;
+            6'd22: row_major_index = 6'o 5_1;
+            6'd23: row_major_index = 6'o 4_2;
+            6'd24: row_major_index = 6'o 3_3;
+            6'd25: row_major_index = 6'o 2_4;
+            6'd26: row_major_index = 6'o 1_5;
+            6'd27: row_major_index = 6'o 0_6;
 
-            6'd28: zig_zag_index = 6'o 0_7;
-            6'd29: zig_zag_index = 6'o 1_6;
-            6'd30: zig_zag_index = 6'o 2_5;
-            6'd31: zig_zag_index = 6'o 3_4;
-            6'd32: zig_zag_index = 6'o 4_3;
-            6'd33: zig_zag_index = 6'o 5_2;
-            6'd34: zig_zag_index = 6'o 6_1;
-            6'd35: zig_zag_index = 6'o 7_0;
+            6'd28: row_major_index = 6'o 0_7;
+            6'd29: row_major_index = 6'o 1_6;
+            6'd30: row_major_index = 6'o 2_5;
+            6'd31: row_major_index = 6'o 3_4;
+            6'd32: row_major_index = 6'o 4_3;
+            6'd33: row_major_index = 6'o 5_2;
+            6'd34: row_major_index = 6'o 6_1;
+            6'd35: row_major_index = 6'o 7_0;
 
-            6'd36: zig_zag_index = 6'o 7_1;
-            6'd37: zig_zag_index = 6'o 6_2;
-            6'd38: zig_zag_index = 6'o 5_3;
-            6'd39: zig_zag_index = 6'o 4_4;
-            6'd40: zig_zag_index = 6'o 3_5;
-            6'd41: zig_zag_index = 6'o 2_6;
-            6'd42: zig_zag_index = 6'o 1_7;
+            6'd36: row_major_index = 6'o 7_1;
+            6'd37: row_major_index = 6'o 6_2;
+            6'd38: row_major_index = 6'o 5_3;
+            6'd39: row_major_index = 6'o 4_4;
+            6'd40: row_major_index = 6'o 3_5;
+            6'd41: row_major_index = 6'o 2_6;
+            6'd42: row_major_index = 6'o 1_7;
 
-            6'd43: zig_zag_index = 6'o 2_7;
-            6'd44: zig_zag_index = 6'o 3_6;
-            6'd45: zig_zag_index = 6'o 4_5;
-            6'd46: zig_zag_index = 6'o 5_4;
-            6'd47: zig_zag_index = 6'o 6_3;
-            6'd48: zig_zag_index = 6'o 7_2;
+            6'd43: row_major_index = 6'o 2_7;
+            6'd44: row_major_index = 6'o 3_6;
+            6'd45: row_major_index = 6'o 4_5;
+            6'd46: row_major_index = 6'o 5_4;
+            6'd47: row_major_index = 6'o 6_3;
+            6'd48: row_major_index = 6'o 7_2;
 
-            6'd49: zig_zag_index = 6'o 7_3;
-            6'd50: zig_zag_index = 6'o 6_4;
-            6'd51: zig_zag_index = 6'o 5_5;
-            6'd52: zig_zag_index = 6'o 4_6;
-            6'd53: zig_zag_index = 6'o 3_7;
+            6'd49: row_major_index = 6'o 7_3;
+            6'd50: row_major_index = 6'o 6_4;
+            6'd51: row_major_index = 6'o 5_5;
+            6'd52: row_major_index = 6'o 4_6;
+            6'd53: row_major_index = 6'o 3_7;
 
-            6'd54: zig_zag_index = 6'o 4_7;
-            6'd55: zig_zag_index = 6'o 5_6;
-            6'd56: zig_zag_index = 6'o 6_5;
-            6'd57: zig_zag_index = 6'o 7_4;
+            6'd54: row_major_index = 6'o 4_7;
+            6'd55: row_major_index = 6'o 5_6;
+            6'd56: row_major_index = 6'o 6_5;
+            6'd57: row_major_index = 6'o 7_4;
 
-            6'd58: zig_zag_index = 6'o 7_5;
-            6'd59: zig_zag_index = 6'o 6_6;
-            6'd60: zig_zag_index = 6'o 5_7;
+            6'd58: row_major_index = 6'o 7_5;
+            6'd59: row_major_index = 6'o 6_6;
+            6'd60: row_major_index = 6'o 5_7;
 
-            6'd61: zig_zag_index = 6'o 6_7;
-            6'd62: zig_zag_index = 6'o 7_6;
+            6'd61: row_major_index = 6'o 6_7;
+            6'd62: row_major_index = 6'o 7_6;
 
-            6'd63: zig_zag_index = 6'o 7_7;
+            6'd63: row_major_index = 6'o 7_7;
         endcase
     end
 endmodule // zig_zag_to_row_major

@@ -92,6 +92,10 @@ module jfpjc(input                      nreset,
     wire [5:0] dct_fetch_addr [0:4];
     wire [4:0] dcts_finished;
     reg [2:0] mcu_groups_processed;
+
+    reg [7:0] dct_output_read_addr;
+    wire signed [15:0] dct_output_read_data [0:4];
+
     genvar dcts_i;
     generate
         for (dcts_i = 0; dcts_i < 5; dcts_i = dcts_i + 1) begin: dcts
@@ -120,15 +124,13 @@ module jfpjc(input                      nreset,
                                                                         .write_en(dct_result_wren),
                                                                         .waddr(dct_buffered_write_addr),
                                                                         .wclk(clock),
-                                                                        .raddr(8'h0),
-                                                                        .rclk(1'b0),
-                                                                        .dout());
+                                                                        .raddr(dct_output_read_addr),
+                                                                        .rclk(clock),
+                                                                        .dout(dct_output_read_data[dcts_i]));
         end
 
         for (dcts_i = 0; dcts_i < 5; dcts_i = dcts_i + 1) begin: dct_addrs
             always @* begin
-                //dct_buffer_fetch_addr[dcts_i] = (dct_fetch_addr[dcts_i] +
-                //({6'h0, mcu_groups_processed} << 6));
                 dct_buffer_fetch_addr[dcts_i] = { mcu_groups_processed, dct_fetch_addr[dcts_i] };
             end
         end
@@ -147,13 +149,13 @@ module jfpjc(input                      nreset,
 `define DCTS_STATE_ERR 3'h3
     reg [2:0] DCTs_state;
     reg [1:0] reset_cnt;
-    reg       frontbuffer [0:1];
+    reg       ingester_frontbuffer [0:1];
     wire      buffer_swapped;
-    assign buffer_swapped = (frontbuffer[0] != frontbuffer[1]);
+    assign buffer_swapped = (ingester_frontbuffer[0] != ingester_frontbuffer[1]);
     always @ (posedge clock) begin
         if (nreset) begin
-            frontbuffer[0] <= ingester_frontbuffer_select;
-            frontbuffer[1] <= frontbuffer[0];
+            ingester_frontbuffer[0] <= ingester_frontbuffer_select;
+            ingester_frontbuffer[1] <= ingester_frontbuffer[0];
 
             case (DCTs_state)
                 `DCTS_STATE_WAIT_FRAMEBUFFER: begin
@@ -189,7 +191,7 @@ module jfpjc(input                      nreset,
                         mcu_groups_processed <= mcu_groups_processed;
                         DCTs_state <= `DCTS_STATE_ERR;
                         dcts_frontbuffer <= dcts_frontbuffer;
-                    end else if (|dcts_finished) begin
+                    end else if (&dcts_finished) begin
                         mcu_groups_processed <= mcu_groups_processed + 'h1;
                         if (mcu_groups_processed == 'h7) begin
                             DCTs_state <= `DCTS_STATE_WAIT_FRAMEBUFFER;
@@ -214,8 +216,8 @@ module jfpjc(input                      nreset,
             endcase
         end else begin
             DCTs_state <= `DCTS_STATE_WAIT_FRAMEBUFFER;
-            frontbuffer[0] <= 1'b0;
-            frontbuffer[1] <= 1'b0;
+            ingester_frontbuffer[0] <= 1'b0;
+            ingester_frontbuffer[1] <= 1'b0;
             mcu_groups_processed <= 'h0;
             reset_cnt <= 'h0;
             dcts_frontbuffer <= 'h0;
@@ -242,8 +244,112 @@ module jfpjc(input                      nreset,
         endcase // case (DCTs_state)
     end
 
-    //quantizer();
+    ////////////////////////////////////////////////////////////////
+    // quantizer
+    reg  signed [15:0] dividend;
+    wire        [7:0] divisor;
+    reg         [7:0] quotient_tag_in;
+    reg               dividend_divisor_valid;
 
-    //jpeg_huffman_encode();
+    reg [0:0] quantizer_state;
+`define QUANTIZER_STATE_WAIT 1'h0
+`define QUANTIZER_STATE_QUANTIZE 1'h1
+    reg [1:0] quantizer_readbuf;
+    reg [5:0] coefficient_index [0:1];
+    reg [2:0] ebr_index;
+    reg [1:0] quantizer_output_buffer [0:1];
+    always @(posedge clock) begin
+        if (nreset) begin
+            coefficient_index[1] <= coefficient_index[0];
+            quantizer_output_buffer[1] <= quantizer_output_buffer[0];
+            case (quantizer_state)
+                `QUANTIZER_STATE_WAIT: begin
+                    quantizer_readbuf <= quantizer_readbuf;
+                    coefficient_index[0] <= 'h0;
+                    dividend_divisor_valid <= 1'h0;
+                    ebr_index <= 'h0;
+                    if (quantizer_readbuf != dcts_frontbuffer) begin
+                        quantizer_state <= `QUANTIZER_STATE_QUANTIZE;
+                    end else begin
+                        quantizer_state <= `QUANTIZER_STATE_WAIT;
+                    end
+                end
+
+                `QUANTIZER_STATE_QUANTIZE: begin
+                    coefficient_index[0] <= coefficient_index[0] + 6'h1;
+                    dividend_divisor_valid <= 1'h1;
+
+                    if (coefficient_index[0] == 'h3f) begin
+                        quantizer_output_buffer[0] <= quantizer_output_buffer[0] + 'h1;
+
+                        if (ebr_index == 3'h4) begin
+                            quantizer_state <= `QUANTIZER_STATE_WAIT;
+                            ebr_index <= 'h0;
+                        end else begin
+                            quantizer_state <= `QUANTIZER_STATE_QUANTIZE;
+                            ebr_index <= ebr_index + 'h1;
+                        end
+                    end else begin
+                        quantizer_output_buffer[0] <= quantizer_output_buffer[0];
+                        quantizer_state <= `QUANTIZER_STATE_QUANTIZE;
+                        ebr_index <= ebr_index;
+                    end
+                end
+            endcase
+        end else begin
+            quantizer_state <= `QUANTIZER_STATE_WAIT;
+            quantizer_readbuf <= 2'h0;
+            quantizer_output_buffer[0] <= 2'h0;
+            quantizer_output_buffer[1] <= 2'h0;
+            coefficient_index[0] <= 'h0;
+            coefficient_index[1] <= 'h0;
+            ebr_index <= 'h0;
+            dividend_divisor_valid <= 'h0;
+        end
+    end
+
+    wire [5:0] zigzagged_coefficient_index;
+    //zig_zag_to_row_major ziggy(.zig_zag_index(coefficient_index[0]),
+    //.row_major_index(zigzagged_coefficient_index));
+    assign zigzagged_coefficient_index = coefficient_index[0];
+
+    always @* begin
+        dct_output_read_addr = { quantizer_readbuf, zigzagged_coefficient_index };
+        dividend = dct_output_read_data[ebr_index];
+        //dividend = coefficient_index[1];
+    end
+
+    // entries in the quantization table shall be stored in zig-zag order.
+    ice40_ebr #(.addr_width(9), .data_width(8)) quantization_table_ebr(.din(8'h00),
+                                                                        .write_en(1'b0),
+                                                                        .waddr(9'h00),
+                                                                        .wclk(1'b0),
+
+                                                                        .raddr({ 3'h0, coefficient_index[0] }),
+                                                                        .rclk(clock),
+                                                                        .dout(divisor));
+
+    wire signed [15:0] quotient;
+    wire         [7:0] quotient_tag;
+    wire               quotient_valid;
+    pipelined_divider divider(.nreset(nreset),
+                              .clock(clock),
+
+                              .dividend(dividend),
+                              .divisor(divisor),
+                              .tag({ quantizer_output_buffer[1], coefficient_index[1] }),
+                              .input_valid(dividend_divisor_valid),
+
+                              .quotient(quotient),
+                              .tag_out(quotient_tag),
+                              .output_valid(quotient_valid));
+
+    ice40_ebr #(.addr_width(8), .data_width(16)) quotient_output_mem(.din(quotient),
+                                                                     .write_en(quotient_valid),
+                                                                     .waddr(quotient_tag),
+                                                                     .wclk(clock),
+                                                                     .raddr(8'h0),
+                                                                     .rclk(1'b0),
+                                                                     .dout());
 
 endmodule
