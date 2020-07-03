@@ -46,19 +46,17 @@ module jfpjc_tb();
         reg [1:0] quantizer_output_buffer_prev;
 
         if (compressor.quotient_valid) begin
-            //quantizer_output_buffer_prev <= compressor.quantizer_output_buffer;
-            quantizer_output_buffer_prev <= compressor.quotient_tag[7:6];
-        end else begin
-            quantizer_output_buffer_prev <= quantizer_output_buffer_prev;
+            dct_result[outbuf_idx] <= compressor.quotient;
+            outbuf_idx <= outbuf_idx + 1;
         end
 
-        if ((quantizer_output_buffer_prev != compressor.quotient_tag[7:6])) begin
+/*        if ((quantizer_output_buffer_prev != compressor.quotient_tag[7:6])) begin
             for (j = 0; j < 64; j = j + 1) begin
                 dct_result[outbuf_idx] =
                      compressor.quotient_output_mem.mem[j + (quantizer_output_buffer_prev * 64)];
                 outbuf_idx = outbuf_idx + 1;
             end
-        end
+        end*/
 `else
 
         reg [1:0] dcts_frontbuffer_prev;
@@ -132,23 +130,9 @@ module jfpjc_tb();
         end
 
         for (i = 0; i < (64 * 40 * 7); i = i + 1) begin
-            //if (dct_result[i] !== dct_testmem[i]) begin
-            //$display("%h;%h", i, dct_result[i], i, dct_testmem[i] / 2);
-            $write("%d,", dct_result[i]);
-            //end
-/*            if (dct_result[i] !== (i % 64)) begin
-                $display("dct_result[%d] = %d", i, dct_result[i]);
-            end*/
-        end
-        $display();
-        for (i = 0; i < (64 * 40 * 7); i = i + 1) begin
-            //if (dct_result[i] !== dct_testmem[i]) begin
-            //$display("%h;%h", i, dct_result[i], i, dct_testmem[i] / 2);
-            $write("%d,", dct_testmem[i]);
-            //end
-            /*            if (dct_result[i] !== (i % 64)) begin
-             $display("dct_result[%d] = %d", i, dct_result[i]);
-            end*/
+            if (dct_result[i] !== dct_testmem[i]) begin
+                $display("%d, %h;%h", i, dct_result[i], dct_testmem[i]);
+            end
         end
 
         test = 16'hfffc;

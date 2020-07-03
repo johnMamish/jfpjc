@@ -284,9 +284,11 @@ module jfpjc(input                      nreset,
 
                         if (ebr_index == 3'h4) begin
                             quantizer_state <= `QUANTIZER_STATE_WAIT;
+                            quantizer_readbuf <= quantizer_readbuf + 'h1;
                             ebr_index <= 'h0;
                         end else begin
                             quantizer_state <= `QUANTIZER_STATE_QUANTIZE;
+                            quantizer_readbuf <= quantizer_readbuf;
                             ebr_index <= ebr_index + 'h1;
                         end
                     end else begin
@@ -321,13 +323,13 @@ module jfpjc(input                      nreset,
 
     // entries in the quantization table shall be stored in zig-zag order.
     ice40_ebr #(.addr_width(9), .data_width(8)) quantization_table_ebr(.din(8'h00),
-                                                                        .write_en(1'b0),
-                                                                        .waddr(9'h00),
-                                                                        .wclk(1'b0),
+                                                                       .write_en(1'b0),
+                                                                       .waddr(9'h00),
+                                                                       .wclk(1'b0),
 
-                                                                        .raddr({ 3'h0, coefficient_index[0] }),
-                                                                        .rclk(clock),
-                                                                        .dout(divisor));
+                                                                       .raddr({ 3'h0, coefficient_index[0] }),
+                                                                       .rclk(clock),
+                                                                       .dout(divisor));
 
     wire signed [15:0] quotient;
     wire         [7:0] quotient_tag;
