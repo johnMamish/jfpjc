@@ -36,18 +36,34 @@ module jfpjc_tb();
         #250; clock = ~clock; #250;
     end
 
+    reg [7:0] huffman_out [0:32767];
+
     // empty out DCT output buffers whenever a new result is available.
     reg signed [15:0] dct_result [0:(320 * 240) - 1];
     integer outbuf_idx; initial outbuf_idx = 0;
     always @(posedge clock) begin : DCT_ingestion
         integer j;
-        `define _ENABLE_DCT_INGESTION_QUANT
+//`define _ENABLE_DCT_INGESTION_QUANT
+`define _READ_FROM_HUFFMAN_OUTPUT
 `ifdef _ENABLE_DCT_INGESTION_QUANT
         reg [1:0] quantizer_output_buffer_prev;
 
         if (compressor.quotient_valid) begin
             dct_result[outbuf_idx] <= compressor.quotient;
             outbuf_idx <= outbuf_idx + 1;
+        end
+`elsif _READ_FROM_HUFFMAN_OUTPUT
+        if (compressor.bit_packer_data_out_valid) begin
+            for (j = 0; j < 4; j = j + 1) begin
+                huffman_out[outbuf_idx] = compressor.bit_packer_data_out[(j * 8) + 7 : (j * 8)];
+                outbuf_idx <= outbuf_idx + 1;
+
+                // bytestuff
+                if (compressor.bit_packer_data_out[(j * 8) + 7 : (j * 8)] == 8'hff) begin
+                    huffman_out[outbuf_idx] = 8'h00;
+                    outbuf_idx <= outbuf_idx + 1;
+                end
+            end
         end
 
 /*        if ((quantizer_output_buffer_prev != compressor.quotient_tag[7:6])) begin

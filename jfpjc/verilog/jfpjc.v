@@ -48,6 +48,7 @@ module jfpjc(input                      nreset,
                              .output_pixval(ingester_output_pixval),
                              .wren(ingester_wren));
 
+    // 10x EBR
     genvar ingester_ebrs_gi;
     integer ingester_ebrs_gj;
     wire [7:0] ingester_block_dout [0:9];
@@ -96,6 +97,7 @@ module jfpjc(input                      nreset,
     reg [7:0] dct_output_read_addr;
     wire signed [15:0] dct_output_read_data [0:4];
 
+    // 5 * (1 + 1) ebr (10x ebr)
     genvar dcts_i;
     generate
         for (dcts_i = 0; dcts_i < 5; dcts_i = dcts_i + 1) begin: dcts
@@ -323,6 +325,7 @@ module jfpjc(input                      nreset,
     end
 
     // entries in the quantization table shall be stored in zig-zag order.
+    // 1 EBR
     ice40_ebr #(.addr_width(9), .data_width(8)) quantization_table_ebr(.din(8'h00),
                                                                        .write_en(1'b0),
                                                                        .waddr(9'h00),
@@ -347,12 +350,66 @@ module jfpjc(input                      nreset,
                               .tag_out(quotient_tag),
                               .output_valid(quotient_valid));
 
-    ice40_ebr #(.addr_width(8), .data_width(16)) quotient_output_mem(.din(quotient),
-                                                                     .write_en(quotient_valid),
-                                                                     .waddr(quotient_tag),
-                                                                     .wclk(clock),
-                                                                     .raddr(8'h0),
-                                                                     .rclk(1'b0),
-                                                                     .dout());
+    reg [1:0] huffman_encoder_buffer_sel;
+    ice40_ebr #(.addr_width(8), .data_width(16))
+        quotient_output_mem(.din(quotient),
+                            .write_en(quotient_valid),
+                            .waddr(quotient_tag),
+                            .wclk(clock),
+                            .raddr({ huffman_encoder_buffer_sel, huffman_encode_fetch_addr }),
+                            .rclk(clock),
+                            .dout(huffman_encode_src_data_in));
+
+    wire huffman_encoder_output_wren;
+    wire [31:0] huffman_encoder_output_data;
+    wire [5:0] huffman_encoder_output_length;
+    wire       huffman_encoder_busy;
+    wire        huffman_encoder_start;
+    jpeg_huffman_encode encoder(.clock(clock),
+                                .nreset(nreset),
+                                .start(huffman_encoder_start),
+
+                                .fetch_addr(huffman_encoder_fetch_addr),
+                                .src_data_in(huffman_encoder_src_data_in),
+
+                                .output_wren(huffman_encoder_output_wren),
+                                .output_length(huffman_encoder_output_length),
+                                .output_data(huffman_encoder_output_data),
+
+                                .finished(huffman_encoder_busy));
+
+    // maybe this should be clocked in a register
+    assign huffman_encoder_start = ((huffman_encoder_buffer_sel != quantizer_output_buffer[1]) &&
+                                    (!huffman_encoder_busy)) ? 1'b1 : 1'b0;
+
+    reg huffman_encoder_busy_delay;
+    always @(posedge clock) begin
+        if (nreset) begin
+            huffman_encoder_busy_delay <= huffman_encoder_busy;
+            if (!huffman_encoder_busy && huffman_encoder_busy_delay) begin
+                huffman_encoder_buffer_sel <= huffman_encoder_buffer_sel + 2'h1;
+            end else begin
+                huffman_encoder_buffer_sel <= huffman_encoder_buffer_sel;
+            end
+        end else begin
+            huffman_encoder_busy_delay <= 1'b0;
+            huffman_encoder_buffer_sel <= 2'h0;
+        end
+    end
+
+    wire bit_packer_data_out_valid;
+    wire [31:0] bit_packer_data_out;
+    bitpacker packer(.clock(clock),
+                     .nreset(nreset),
+
+                     .data_in_valid(huffman_encoder_output_wren),
+                     .data_in(huffman_encoder),
+                     .input_length(huffman_encoder_output_length),
+
+                     .data_out_valid(bit_packer_data_out_valid),
+                     .data_out(bit_packer_data_out));
+
+    // byte-packer (I guess we could do this with a very shallow EBR-based FIFO).
+    // byte-packer could just go at the very end right before the output to the MCU.
 
 endmodule
