@@ -312,7 +312,7 @@ module jpeg_huffman_encode(input clock,
                            output reg [5:0]  output_length,
                            output reg [31:0] output_data,
 
-                           output reg [0:0]  finished);
+                           output reg [0:0]  busy);
 
     ////////////////////////////////////////////////////////////
     // Registers shared over pipeline stages
@@ -538,11 +538,11 @@ module jpeg_huffman_encode(input clock,
             end
 
             if ((index[3] == 6'd63) && (!do_rollback_1)) begin
-                finished <= 1'b1;
+                busy <= 1'b0;
             end else if (start) begin
-                finished <= 1'b0;
+                busy <= 1'b1;
             end else begin
-                finished <= finished;
+                busy <= busy;
             end
 
             if (do_rollback) begin
@@ -558,7 +558,7 @@ module jpeg_huffman_encode(input clock,
 
             coded_coefficient_reg[1] <= 16'hxxxx;
             coded_coefficient_length_reg[1] <= 4'hx;
-            finished <= 1'b0;
+            busy <= 1'b0;
             do_rollback_1 <= 1'b0;
         end
     end

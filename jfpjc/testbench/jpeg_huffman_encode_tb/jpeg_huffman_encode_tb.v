@@ -11,7 +11,7 @@ module jpeg_huffman_encode_tb();
     wire huff_output_wren;
     wire [5:0] huff_output_length;
     wire [31:0] huff_output_data;
-    wire        finished;
+    wire        busy;
 
     reg [31:0] output_memory [0:127];
     reg [4:0] output_lengths [0:127];
@@ -27,7 +27,7 @@ module jpeg_huffman_encode_tb();
                              .output_length(huff_output_length),
                              .output_data(huff_output_data),
 
-                             .finished(finished));
+                             .busy(busy));
 
     // Memory holding 64 int16_t coefficients.
     //
@@ -80,7 +80,7 @@ module jpeg_huffman_encode_tb();
         #2000;
         nreset = 'b1;
         start = 'b0;
-        while (finished == 1'b0) begin
+        while (busy == 1'b1) begin
             if (huff_output_wren) begin
                 $display("packing %h, with length %d", huff.bit_concatenator_data0, huff.bit_concatenator_length0);
                 if (huff.bit_concatenator_length1 > 0) begin
@@ -105,7 +105,7 @@ module jpeg_huffman_encode_tb();
         #2000;
         nreset = 'b1;
         start = 'b0;
-        while (finished == 1'b0) begin
+        while (busy == 1'b1) begin
             if (huff_output_wren) begin
                 $display("packing %h, with length %d", huff.bit_concatenator_data0, huff.bit_concatenator_length0);
                 if (huff.bit_concatenator_length1 > 0) begin
