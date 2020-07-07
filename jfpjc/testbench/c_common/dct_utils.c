@@ -1,5 +1,7 @@
 #include "dct_utils.h"
 
+#include "vpi_user.h"
+
 // k * cos((n * pi) / 16) for 1c3 = 0.8314696123 * 0.35355339059
 // 75.2560385539
 const int16_t _1C3_COS_7Q8 = (75);
@@ -148,11 +150,11 @@ void print_88(int16_t* dat)
 {
     for (int i = 0; i < 8; i++) {
         for (int j = 0; j < 8; j++) {
-            printf("%04x, ", *(uint16_t*)(dat + (i * 8) + j));
+            vpi_printf("%04x, ", *(uint16_t*)(dat + (i * 8) + j));
         }
-        printf("\n");
+        vpi_printf("\n");
     }
-    printf("\n");
+    vpi_printf("\n");
 }
 
 void dct88_q8(const int8_t* input, int16_t* output)

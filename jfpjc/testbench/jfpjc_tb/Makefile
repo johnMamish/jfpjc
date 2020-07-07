@@ -5,6 +5,7 @@ all: jfpjc_tb.vvp
 
 VERILOG_FILES:=
 VERILOG_FILES+= jfpjc_tb.v
+VERILOG_FILES+= $(VERILOG)/bitpacker.v
 VERILOG_FILES+= $(VERILOG)/hm01b0_ingester.v
 VERILOG_FILES+= $(VERILOG)/loeffler_dct_88.v
 VERILOG_FILES+= $(VERILOG)/loeffler_dct_8.v
@@ -21,6 +22,15 @@ C_SOURCES:=
 C_SOURCES+= $(C_FILES)/vpi_jpeg_utils.c
 C_SOURCES+= $(C_FILES)/dct_utils.c
 
+# -Wno-sensitivity-entire-array prevents us from generating warnings when we dereference a large
+# array inside of an always @* block.
+#     e.g. warning: @* is sensitive to all 4 words in array 'index'
+# I'd expect this to still synthesize exactly what I intend, but according to a forum post I dug
+# up on google, it might result in slower simulation.
+#     https://sourceforge.net/p/iverilog/mailman/message/35079608/
+VERILOG_WARNING_FLAGS:=
+VERILOG_WARNING_FLAGS+= -Wall -Wno-sensitivity-entire-array
+
 jfpjc_tb.vvp: $(VERILOG_FILES) $(C_SOURCES)
 	iverilog-vpi $(C_FILES)/vpi_jpeg_utils.c $(C_FILES)/dct_utils.c
-	iverilog -I$(VERILOG) -Wall -o $@ $(filter %.v,$^)
+	iverilog -I$(VERILOG) $(VERILOG_WARNING_FLAGS) -o $@ $(filter %.v,$^)

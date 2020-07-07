@@ -11,6 +11,38 @@
 
 #include "dct_utils.h"
 
+
+/**
+ * This convenience struct holds args for the image_take_dcts System Task.
+ */
+typedef struct image_take_dcts_args
+{
+    vpiHandle array_in_handle;
+    vpiHandle array_out_handle;
+    vpiHandle image_width_handle;
+    vpiHandle image_height_handle;
+
+    int32_t image_width;
+    int32_t image_height;
+} image_take_dcts_args_t;
+
+
+static PLI_INT32 vpi_get_value_integer(vpiHandle h);
+int count_vpi_args(vpiHandle systf_handle);
+int check_arg_types(vpiHandle systf_handle, const PLI_INT32* expected_arg_types, int numargs);
+static image_take_dcts_args_t* image_take_dcts_args_create(void);
+static void image_take_dcts_args_destroy(image_take_dcts_args_t* args);
+static int image_take_dcts_check_arg_dims(image_take_dcts_args_t* args);
+int vpi_memory_to_uint8_array(uint8_t** target, vpiHandle mem);
+void int16_array_to_vpi_memory(vpiHandle mem, int16_t* src, int len);
+static void image_subtract_dc(int8_t* image, int len);
+void image_reshape_to_mcus(uint8_t* image, int width, int height);
+
+
+PLI_INT32 image_take_dcts_calltf(void);
+PLI_INT32 image_take_dcts_compiletf(void);
+void image_take_dcts_register(void);
+
 /**
  * Helper function that returns the integer value of a vpi object.
  *
@@ -58,32 +90,18 @@ int check_arg_types(vpiHandle systf_handle, const PLI_INT32* expected_arg_types,
     vpiHandle arg_iterator = vpi_iterate(vpiArgument, systf_handle);
     vpiHandle arg;
     int i = 0;
-    while((arg = vpi_scan(arg_iterator)) != NULL) {
+    while(((arg = vpi_scan(arg_iterator)) != NULL) && (i < numargs)) {
         PLI_INT32 arg_type = vpi_get(vpiType, arg);
         if (arg_type != expected_arg_types[i]) {
             retval = -1;
-            char* type = vpi_get(vpiType, arg);
-            vpi_printf("ERROR: arg %i is of type %s, which is invalid.\n", i, type);
+            vpi_printf("ERROR: arg %i is of type %s, which is invalid.\n",
+                       i, vpi_get_str(vpiType, arg));
         }
         i++;
     }
 
     return retval;
 }
-
-/**
- * This convenience struct holds args for the image_take_dcts System Task.
- */
-typedef struct image_take_dcts_args
-{
-    vpiHandle array_in_handle;
-    vpiHandle array_out_handle;
-    vpiHandle image_width_handle;
-    vpiHandle image_height_handle;
-
-    int32_t image_width;
-    int32_t image_height;
-} image_take_dcts_args_t;
 
 /**
  * Creates a new image_take_dcts_args struct and then fills it out with handles to the VPI objects
@@ -197,7 +215,7 @@ void int16_array_to_vpi_memory(vpiHandle mem, int16_t* src, int len)
 }
 
 
-void image_subtract_dc(int8_t* image, int len)
+static void image_subtract_dc(int8_t* image, int len)
 {
     for (int i = 0; i < len; i++) {
         image[i] -= 128;
@@ -250,7 +268,7 @@ PLI_INT32 image_take_dcts_calltf()
 
     int16_t* dcts_out = calloc(image_size, sizeof(int16_t));
     for (int i = 0; i < (image_size / 64); i++) {
-        dct88_q8(image + (i * 64), dcts_out + (i * 64));
+        dct88_q8((int8_t*)image + (i * 64), dcts_out + (i * 64));
     }
     int16_array_to_vpi_memory(args->array_out_handle, dcts_out, image_size);
 
@@ -299,15 +317,15 @@ void image_take_dcts_register()
     tfd.type = vpiSysTask;
     tfd.sysfunctype = 0;
     tfd.tfname = "$image_take_dcts";
-    tfd.calltf = image_take_dcts_calltf;
-    tfd.compiletf = image_take_dcts_compiletf;
+    tfd.calltf = (PLI_INT32 (*)(PLI_BYTE8*))image_take_dcts_calltf;
+    tfd.compiletf = (PLI_INT32 (*)(PLI_BYTE8*))image_take_dcts_compiletf;
     tfd.sizetf = NULL;
     tfd.user_data = NULL;
 
     vpi_register_systf(&tfd);
 }
 
-void (*vlog_startup_routines[])() =
+void (*vlog_startup_routines[])(void) =
 {
     image_take_dcts_register,
     0

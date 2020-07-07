@@ -577,7 +577,7 @@ module jpeg_huffman_encode(input clock,
         end
     end
 
-    wire [4:0] output_length_wire;
+    wire [5:0] output_length_wire;
     wire [31:0] output_data_wire;
     double_bit_concatenator concat(.data_0(bit_concatenator_data0),
                                    .data_1(bit_concatenator_data1),
