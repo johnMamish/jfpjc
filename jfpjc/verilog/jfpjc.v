@@ -351,20 +351,22 @@ module jfpjc(input                      nreset,
                               .output_valid(quotient_valid));
 
     reg [1:0] huffman_encoder_buffer_sel;
+    wire [5:0] huffman_encoder_fetch_addr;
+    wire [15:0] huffman_encoder_src_data_in;
     ice40_ebr #(.addr_width(8), .data_width(16))
         quotient_output_mem(.din(quotient),
                             .write_en(quotient_valid),
                             .waddr(quotient_tag),
                             .wclk(clock),
-                            .raddr({ huffman_encoder_buffer_sel, huffman_encode_fetch_addr }),
+                            .raddr({ huffman_encoder_buffer_sel, huffman_encoder_fetch_addr }),
                             .rclk(clock),
-                            .dout(huffman_encode_src_data_in));
+                            .dout(huffman_encoder_src_data_in));
 
     wire huffman_encoder_output_wren;
     wire [31:0] huffman_encoder_output_data;
     wire [5:0] huffman_encoder_output_length;
     wire       huffman_encoder_busy;
-    wire        huffman_encoder_start;
+    reg        huffman_encoder_start;
     jpeg_huffman_encode encoder(.clock(clock),
                                 .nreset(nreset),
                                 .start(huffman_encoder_start),
@@ -376,12 +378,9 @@ module jfpjc(input                      nreset,
                                 .output_length(huffman_encoder_output_length),
                                 .output_data(huffman_encoder_output_data),
 
-                                .finished(huffman_encoder_busy));
+                                .busy(huffman_encoder_busy));
 
-    // maybe this should be clocked in a register
-    assign huffman_encoder_start = ((huffman_encoder_buffer_sel != quantizer_output_buffer[1]) &&
-                                    (!huffman_encoder_busy)) ? 1'b1 : 1'b0;
-
+    reg [7:0] quotient_tag_next;
     reg huffman_encoder_busy_delay;
     always @(posedge clock) begin
         if (nreset) begin
@@ -391,9 +390,27 @@ module jfpjc(input                      nreset,
             end else begin
                 huffman_encoder_buffer_sel <= huffman_encoder_buffer_sel;
             end
+
+            if (quotient_valid) begin
+                quotient_tag_next <= quotient_tag + 8'h1;
+            end else begin
+                quotient_tag_next <= quotient_tag_next;
+            end
+
+            // huffman_encoder_start can be derived with only combinational logic, but making it
+            // behave nicely right at reset would be a pain; we'd need to initialize
+            // "quotient_tag_next" to be
+            if ((huffman_encoder_buffer_sel != (quotient_tag_next[7:6])) &&
+                (!huffman_encoder_busy_delay)) begin
+                huffman_encoder_start <= 1'b1;
+            end else begin
+                huffman_encoder_start <= 1'b0;
+            end
         end else begin
             huffman_encoder_busy_delay <= 1'b0;
             huffman_encoder_buffer_sel <= 2'h0;
+            quotient_tag_next <= 8'h0;
+            huffman_encoder_start <= 1'b0;
         end
     end
 
@@ -403,7 +420,7 @@ module jfpjc(input                      nreset,
                      .nreset(nreset),
 
                      .data_in_valid(huffman_encoder_output_wren),
-                     .data_in(huffman_encoder),
+                     .data_in(huffman_encoder_output_data),
                      .input_length(huffman_encoder_output_length),
 
                      .data_out_valid(bit_packer_data_out_valid),

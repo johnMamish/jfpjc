@@ -55,11 +55,11 @@ module jfpjc_tb();
 `elsif _READ_FROM_HUFFMAN_OUTPUT
         if (compressor.bit_packer_data_out_valid) begin
             for (j = 0; j < 4; j = j + 1) begin
-                huffman_out[outbuf_idx] = compressor.bit_packer_data_out[(j * 8) + 7 : (j * 8)];
+                huffman_out[outbuf_idx] = compressor.bit_packer_data_out[(j * 8) +: 8];
                 outbuf_idx <= outbuf_idx + 1;
 
                 // bytestuff
-                if (compressor.bit_packer_data_out[(j * 8) + 7 : (j * 8)] == 8'hff) begin
+                if (compressor.bit_packer_data_out[(j * 8) +: 8] == 8'hff) begin
                     huffman_out[outbuf_idx] = 8'h00;
                     outbuf_idx <= outbuf_idx + 1;
                 end
@@ -145,18 +145,15 @@ module jfpjc_tb();
             end
         end
 
-        for (i = 0; i < (64 * 40 * 7); i = i + 1) begin
+        /*for (i = 0; i < (64 * 40 * 7); i = i + 1) begin
             if (dct_result[i] !== dct_testmem[i]) begin
                 $display("%d, %h;%h", i, dct_result[i], dct_testmem[i]);
             end
+        end*/
+        for (i = 0; i < outbuf_idx; i = i + 1) begin
+             $write("%h ", huffman_out[i]);
         end
-
-        test = 16'hfffc;
-        test2 = 'h2;
-        $display("-4 / 2 is %h", test / test2);
-        test = 16'hfff8;
-        test2 = 'h3;
-        $display("-8 / 3 is %h", test / test2);
+        $display();
 
         /*$writememh("jfpjc_ingester_0.hex", compressor.ebrs[0].jpeg_buffer.mem);
         $writememh("jfpjc_ingester_1.hex", compressor.ebrs[1].jpeg_buffer.mem);
