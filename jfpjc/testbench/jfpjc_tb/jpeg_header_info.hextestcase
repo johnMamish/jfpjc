@@ -1,5 +1,8 @@
+// SOI
 FF
 D8
+
+// JFIF
 FF
 E0
 00
@@ -18,6 +21,8 @@ E0
 01
 00
 00
+
+// quant table header
 FF
 DB
 00
@@ -91,6 +96,7 @@ DB
 01
 // quant table end
 
+// DC huffman tble
 FF
 C4
 00
@@ -124,6 +130,8 @@ C4
 09
 0A
 0B
+
+// AC huffman table
 FF
 C4
 00
@@ -307,19 +315,23 @@ F7
 F8
 F9
 FA
+
+// SOF 0
 FF
 C0
 00
 0B
 08
-02
-00
-02
-00
+00    // height?
+f0
+01    // width?
+40
 01
 00
 11
 00
+
+// Start of scan
 FF
 DA
 00
