@@ -58,14 +58,14 @@ module jfpjc_tb();
         end
  `elsif _READ_FROM_HUFFMAN_OUTPUT
         if (compressor.bit_packer_data_out_valid) begin
-            for (j = 0; j < 4; j = j + 1) begin
+            for (j = 3; j >= 0; j = j - 1) begin
                 huffman_out[outbuf_idx] = compressor.bit_packer_data_out[(j * 8) +: 8];
-                outbuf_idx <= outbuf_idx + 1;
+                outbuf_idx = outbuf_idx + 1;
 
                 // bytestuff
                 if (compressor.bit_packer_data_out[(j * 8) +: 8] == 8'hff) begin
                     huffman_out[outbuf_idx] = 8'h00;
-                    outbuf_idx <= outbuf_idx + 1;
+                    outbuf_idx = outbuf_idx + 1;
                 end
             end
         end
@@ -143,8 +143,10 @@ module jfpjc_tb();
         nreset = 1'b1;
 
         // read some number of lines in
-`define LINES_TO_READ (8 * 8)
+//`define LINES_TO_READ (80 * 8)
+`define LINES_TO_READ (240)
         for (i = 0; i < `LINES_TO_READ; i = i + 1) begin
+            $display("line %d / %d", i, `LINES_TO_READ);
             while (!((hm01b0_hsync == 0))) begin
                 #1000;
             end

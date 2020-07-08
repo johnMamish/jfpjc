@@ -250,12 +250,18 @@ module double_bit_concatenator(input [15:0]  data_0,
     // "the bit width of a shift is always the bit width of the left operand
     // (see table 5-22 in the 2005 LRM)."
     // thanks, stackoverflow!!
-    reg [31:0] data1_extend;
+    //reg [31:0] data1_extend;
+    reg [31:0] data_0_left_justified;
 
     always @* begin
-        data1_extend = { 16'h0, data_1 };
-
-        data_out = data_0 | (data1_extend << length_0);
+        //data_0_left_justified = (({16'h0, data_0}) << (32 - length_0));
+        //data1_extend = { 16'h0, data_1 };
+        if (length_1 != 0) begin
+            data_out = ((({16'h0, data_0}) << (32 - length_0)) |
+                        (({ 16'h0, data_1 }) << (32 - (length_0 + length_1))));
+        end else begin
+            data_out = (({16'h0, data_0}) << (32 - length_0));
+        end
         length_out = length_0 + length_1;
     end
 endmodule
