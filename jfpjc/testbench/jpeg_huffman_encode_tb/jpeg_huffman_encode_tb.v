@@ -33,17 +33,19 @@ module jpeg_huffman_encode_tb();
     //
     // Practically all of the coefficients will be in [-128, 127], but they can theoretically be
     // in [-1024, 1023].
-    //
-    // TODO: add zig-zagger so this memory can hold samples in row-major order. This will ease
-    // loading of different test cases.
+    wire [5:0] row_major_index;
+    reg  [1:0] encoder_in_buf;
     ice40_ebr #(.addr_width(8), .data_width(16)) sample_memory(.din(16'h0000),
                                                                .write_en(1'b0),
                                                                .waddr(8'h00),
                                                                .wclk(1'b0),
 
-                                                               .raddr({2'b00, fetch_addr}),
+                                                               .raddr({encoder_in_buf, row_major_index}),
                                                                .rclk(clock),
                                                                .dout(src_data_into_huff));
+
+    zig_zag_to_row_major ziggy(.zig_zag_index(fetch_addr),
+                               .row_major_index(row_major_index));
 
     // generate clock
     always begin
@@ -69,26 +71,34 @@ module jpeg_huffman_encode_tb();
             $dumpvars(1, huff.coded_coefficient_length_reg[i]);
         end
 
-        $readmemh("jpeg_huffman_encode_testcase_1_in.hextestcase", sample_memory.mem);
+        $readmemh("jpeg_huffman_encode_testcase_3_in.hextestcase", sample_memory.mem);
         output_index = 0;
 
         clock = 'b0;
 
         // strobe reset for a few clock cycles
-        start = 'b1;
+        start = 'b0;
         nreset = 'b0;
         #2000;
         nreset = 'b1;
-        start = 'b0;
-        while (busy == 1'b1) begin
-            if (huff_output_wren) begin
-                $display("packing %h, with length %d", huff.bit_concatenator_data0, huff.bit_concatenator_length0);
-                if (huff.bit_concatenator_length1 > 0) begin
-                    $display("packing %h, with length %d", huff.bit_concatenator_data1, huff.bit_concatenator_length1);
-                end
-            end
-
+        #1000;
+        for (i = 0; i < 4; i = i + 1) begin
+            encoder_in_buf = i;
             #1000;
+            start = 'b1;
+            #1000;
+            start = 'b0;
+            while (busy == 1'b1) begin
+                if (huff_output_wren) begin
+                    $display("packing %h, with length %d", huff.bit_concatenator_data0, huff.bit_concatenator_length0);
+                    if (huff.bit_concatenator_length1 > 0) begin
+                        $display("packing %h, with length %d", huff.bit_concatenator_data1, huff.bit_concatenator_length1);
+                    end
+                end
+                #1000;
+            end
+            $display;
+            #2000;
         end
 
         $display("================================================================");
