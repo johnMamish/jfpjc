@@ -560,6 +560,7 @@ module jpeg_huffman_encode(input clock,
             coded_coefficient_length_reg[1] <= 4'hx;
             busy <= 1'b0;
             do_rollback_1 <= 1'b0;
+            output_wren <= 1'b0;
         end
     end
 

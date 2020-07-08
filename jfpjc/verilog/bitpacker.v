@@ -70,10 +70,21 @@ module bitpacker(input         clock,
     reg [4:0] bit_counter_next;
     reg       bit_counter_carry;
 
+    // hacky solution to add 'data_in_valid' line: if data_in_valid is low, just force length to 0.
+    reg [5:0] input_length_gated;
+    always @* begin
+        if (data_in_valid) begin
+            input_length_gated = input_length;
+        end else begin
+            input_length_gated = 'h0;
+        end
+    end
+
     wire [63:0] lsbs_masked;
-    lsb_masker lm(.width(input_length),
+    lsb_masker lm(.width(input_length_gated),
                   .unmasked_data(data_in),
                   .masked_data(lsbs_masked[31:0]));
+    assign lsbs_masked[63:32] = 32'h0;
 
     reg [31:0] output_register;
     reg [31:0] bit_accumulator_register;
@@ -114,6 +125,6 @@ module bitpacker(input         clock,
     end
 
     always @* begin
-        { bit_counter_carry, bit_counter_next } = bit_counter + input_length;
+        { bit_counter_carry, bit_counter_next } = bit_counter + input_length_gated;
     end
 endmodule

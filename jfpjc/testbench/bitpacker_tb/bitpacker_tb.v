@@ -79,7 +79,7 @@ module bitpacker_tb();
             #1000;
             nreset = 1'b1;
             while (write_idx < 32) begin
-                // calculate inputs by shifting bitsn
+                // calculate inputs by shifting bits in
                 data_in_valid = 'b1;
                 data_in_concat = { data_in_mem[read_idx + 1], data_in_mem[read_idx] };
                 data_in = data_in_concat >> read_bit_idx;

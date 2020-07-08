@@ -315,9 +315,9 @@ module jfpjc(input                      nreset,
     end
 
     wire [5:0] zigzagged_coefficient_index;
-    //zig_zag_to_row_major ziggy(.zig_zag_index(coefficient_index[0]),
-    //.row_major_index(zigzagged_coefficient_index));
-    assign zigzagged_coefficient_index = coefficient_index[0];
+    zig_zag_to_row_major ziggy(.zig_zag_index(coefficient_index[0]),
+                               .row_major_index(zigzagged_coefficient_index));
+    //assign zigzagged_coefficient_index = coefficient_index[0];
 
     always @* begin
         dct_output_read_addr = { quantizer_readbuf, zigzagged_coefficient_index };
