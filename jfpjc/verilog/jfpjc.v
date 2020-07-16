@@ -414,6 +414,7 @@ module jfpjc(input                      nreset,
         end
     end
 
+    // TODO: need to flush this out.
     wire bit_packer_data_out_valid;
     wire [31:0] bit_packer_data_out;
     bitpacker packer(.clock(clock),
@@ -427,6 +428,27 @@ module jfpjc(input                      nreset,
                      .data_out(bit_packer_data_out));
 
     // byte-packer (I guess we could do this with a very shallow EBR-based FIFO).
-    // byte-packer could just go at the very end right before the output to the MCU.
+    // byte-packer could just go at the very end right before the output to the MCU. But... that's
+    // an issue because there are 0xff's in the header information.
+
+
+    // What's the longest Huffman-coded MCU that we could have?
+    // DC component:   (9 bits huffman) + (11 bits value) = 20 bits
+    // AC components: ((16 bits huffman) + (10 bits value)) * 63 = 1638 bits
+    // total = 1658 bits = 207.25 bytes
+    // round it up to 256 bytes; that's 1/2 EBR every MCU.
+    // We get 1 MCU every 64 clock cycles, worst case scenario. Amortized we get 5 MCUs every
+    // 915 clock cycles. This is a worst case scenario of 1280 bytes / 915 clock cycles, which will
+    // overrun the output circuitry. It's worth pointing out, however, that this worst-case scenario
+    // is EXTRAORDINARILY unlikely (and indeed impossible with 8-bit precision). Moreover, with sane
+    // quantization, it is impossible.
+    //
+    // If we find that it ever happens, we can just clock the output buffers twice as fast as the
+    // rest of the circuitry, and it will be fine.
+
+    // To accomodate the 32-bit output width of the bit packer (which is a consequence of the
+    // worst-case 26-bit per cycle output of the huffman encoding stage), we split the output
+    // horizontally over 2 16-bit EBRs
+
 
 endmodule
