@@ -323,7 +323,7 @@ module jpeg_huffman_encode(input clock,
     ////////////////////////////////////////////////////////////
     // Registers shared over pipeline stages
     reg  [5:0] ac_consecutive_zeros_count;
-    reg        do_rollback;
+    reg        do_rollback [0:1];
 
     ////////////////////////////////////////////////////////////
     // Pipeline fetch stage
@@ -333,7 +333,7 @@ module jpeg_huffman_encode(input clock,
     reg        fetch_stage_active;
     always @(posedge clock) begin
         if (nreset) begin
-            if (do_rollback) begin
+            if (do_rollback[0]) begin
                 index[0] <= (index[2] - rollback_distance);
             end else if (fetch_stage_active) begin
                 index[0] <= index[0] + 6'h01;
@@ -343,7 +343,7 @@ module jpeg_huffman_encode(input clock,
 
             if (start) begin
                 fetch_stage_active <= 1'b1;
-            end else if (do_rollback) begin
+            end else if (do_rollback[0]) begin
                 fetch_stage_active <= 1'b1;
             end else if (index[0] == 6'h3f) begin
                 fetch_stage_active <= 1'b0;
@@ -390,7 +390,7 @@ module jpeg_huffman_encode(input clock,
             end
 
             index[1] <= index[0];
-            if (do_rollback) begin
+            if (do_rollback[0]) begin
                 valid[1] <= 1'b0;
             end else begin
                 valid[1] <= valid[0];
@@ -418,6 +418,9 @@ module jpeg_huffman_encode(input clock,
     // Pipeline stage 2
     //
     // AC run-length encoding and Huffman lookup
+    wire final_cycle;
+    assign final_cycle = ((index[3] == 6'd63) && (!do_rollback[1]));
+
     reg [15:0] coded_coefficient_reg [0:1];
     reg  [3:0] coded_coefficient_length_reg [0:1];
     reg  [7:0] ac_rrrrssss;
@@ -446,12 +449,14 @@ module jpeg_huffman_encode(input clock,
                 coded_coefficient_length_reg[0] <= coded_coefficient_length;
             end else begin
                 coded_coefficient_reg[0] <= 16'hx;
-                coded_coefficient_length_reg[0] <= 4'hx;
+                coded_coefficient_length_reg[0] <= 4'h0;
             end
 
-            if (valid[2] == 1'b0) begin
+            if (final_cycle) begin
+                ac_consecutive_zeros_count <= 6'h0;
+            end else if (valid[2] == 1'b0) begin
                 ac_consecutive_zeros_count <= ac_consecutive_zeros_count;
-            end else if (do_rollback) begin
+            end else if (do_rollback[0]) begin
                 ac_consecutive_zeros_count <= 6'h00;
             end else if (index[2] == 6'h00) begin
                 ac_consecutive_zeros_count <= 6'h00;
@@ -463,14 +468,14 @@ module jpeg_huffman_encode(input clock,
 
             index[2] <= index[1];
 
-            if (do_rollback) begin
+            if (do_rollback[0]) begin
                 valid[2] <= 1'b0;
             end else begin
                 valid[2] <= valid[1];
             end
         end else begin
-            coded_coefficient_reg[0] <= 16'hx;
-            coded_coefficient_length_reg[0] <= 4'hx;
+            coded_coefficient_reg[0] <= 16'hxxxx;
+            coded_coefficient_length_reg[0] <= 4'h0;
 
             ac_consecutive_zeros_count <= 6'h00;
 
@@ -491,10 +496,10 @@ module jpeg_huffman_encode(input clock,
         //     (ac_consecutive_zeros_count > 6'h10)
         // instead of
         //     (ac_consecutive_zeros_count > 6'h0f)
-        do_rollback = ((coded_coefficient_length_reg[0] != 4'h0) &&
-                       (ac_consecutive_zeros_count > 6'h0f));
+        do_rollback[0] = ((coded_coefficient_length_reg[0] != 4'h0) &&
+                          (ac_consecutive_zeros_count > 6'h0f));
 
-        if (do_rollback) begin
+        if (do_rollback[0]) begin
             ac_rrrrssss = 8'hf0;
         end else if ((index[2] == 6'd63) && (coded_coefficient_length_reg[0] == 'h0)) begin
             // EOB reached.
@@ -512,10 +517,9 @@ module jpeg_huffman_encode(input clock,
     reg [15:0] bit_concatenator_data1;
     reg  [4:0] bit_concatenator_length0;
     reg  [4:0] bit_concatenator_length1;
-    reg        do_rollback_1;
     always @(posedge clock) begin
         if (nreset) begin
-            do_rollback_1 <= do_rollback;
+            do_rollback[1] <= do_rollback[0];
             index[3] <= index[2];
             valid[3] <= valid[2];
 
@@ -523,13 +527,13 @@ module jpeg_huffman_encode(input clock,
                 output_wren <= valid[2];
             end else begin
                 if (valid[2]) begin
-                    if (do_rollback) begin
+                    if (do_rollback[0]) begin
                         // if we are rolling back, there is an rrrrssss = 0xf0 that needs to be output.
                         output_wren <= 1'b1;
                     end else if (coded_coefficient_length_reg[0] != 4'h0) begin
                         // If the previous stage has found a nonzero coefficient, we have something
                         // to output. Note that this condition is implied by do_rollback, but this
-                        // condition does not necessarily imply do_rollback
+                        // condition does not necessarily imply do_rollback[0]
                         output_wren <= 1'b1;
                     end else if (index[2] == 6'd63) begin
                         // if we didn't rollback and we don't have a nonzero coefficient, the index
@@ -543,7 +547,7 @@ module jpeg_huffman_encode(input clock,
                 end
             end
 
-            if ((index[3] == 6'd63) && (!do_rollback_1)) begin
+            if ((index[3] == 6'd63) && (!do_rollback[1])) begin
                 busy <= 1'b0;
             end else if (start) begin
                 busy <= 1'b1;
@@ -551,7 +555,7 @@ module jpeg_huffman_encode(input clock,
                 busy <= busy;
             end
 
-            if (do_rollback) begin
+            if (do_rollback[0]) begin
                 coded_coefficient_reg[1] <= 16'hxxxx;
                 coded_coefficient_length_reg[1] <= 5'h0;
             end else begin
@@ -565,7 +569,7 @@ module jpeg_huffman_encode(input clock,
             coded_coefficient_reg[1] <= 16'hxxxx;
             coded_coefficient_length_reg[1] <= 4'hx;
             busy <= 1'b0;
-            do_rollback_1 <= 1'b0;
+            do_rollback[1] <= 1'b0;
             output_wren <= 1'b0;
         end
     end
