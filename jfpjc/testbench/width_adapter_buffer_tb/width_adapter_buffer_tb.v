@@ -1,16 +1,16 @@
 `timescale 1ns/100ps
 
-module output_buffer_tb();
+module width_adapter_buffer_tb();
+    localparam integer in_width = 32;
+    localparam integer out_width = 4;
+
     reg clock;
     reg nreset;
     reg data_in_valid;
-    reg [31:0] data_in;
+    reg [in_width - 1:0] data_in;
 
     wire data_out_valid;
-    wire [7:0] data_out;
-
-    localparam integer in_width = 32;
-    localparam integer out_width = 8;
+    wire [out_width - 1:0] data_out;
 
     defparam ob.input_width = in_width;
     defparam ob.output_width = out_width;
@@ -32,7 +32,7 @@ module output_buffer_tb();
         #500;
     end
 
-    localparam integer mem_size_bits = 2048;
+    localparam integer mem_size_bits = 4096;
     localparam integer num_input_words = ((mem_size_bits - 1) / in_width) + 1;
     reg [in_width - 1:0] input_mem [0:num_input_words - 1];
     reg [out_width - 1:0] output_mem [0:(mem_size_bits - 1) / out_width];
@@ -52,21 +52,27 @@ module output_buffer_tb();
     end
 
 
-    localparam integer n_tests = 1;
+    localparam integer n_tests = 20;
 
-    integer seed_erlang = 0;
+    integer seed_exponential = 0;
     integer test_idx;
-    integer i;
+    integer test_bad;
+    integer i, j;
     integer input_mem_idx;
     initial begin
-        $dumpfile("output_buffer_tb.vcd");
-        $dumpvars(0, output_buffer_tb);
+        $dumpfile("width_adapter_buffer_tb.vcd");
+        $dumpvars(0, width_adapter_buffer_tb);
 
         for (test_idx = 0; test_idx < n_tests; test_idx = test_idx + 1) begin
             // fill input mem
             for (i = 0; i < num_input_words; i = i + 1) begin
-                input_mem[i] = $urandom;
-                delays[i] = $dist_erlang(seed_erlang, 5, 5);
+                for (j = 0; j < in_width / 8; j = j + 1) begin
+                    input_mem[i][(j * 8) +: 8] = $urandom;
+                end
+
+                // use an exponential distribution; we model incoming data as a poisson process
+                // with rate in_width / out_width.
+                delays[i] = $dist_exponential(seed_exponential, (in_width / out_width));
             end
 
             nreset = 1'b0;
@@ -94,8 +100,25 @@ module output_buffer_tb();
                 @(posedge clock);
             end
 
+            // just delay a little bit for gtkwave readability.
+            for (i = 0; i < 30; i = i + 1) begin
+                @(posedge clock);
+            end
+
             // check for errors
-            $display("TODO: check for errors.");
+            test_bad = 0;
+            for (i = 0; i < num_input_words; i = i + 1) begin
+                for (j = 0; j < (in_width / out_width); j = j + 1) begin
+                    if (input_mem[i][(j * out_width) +: out_width] !==
+                        output_mem[(i * (in_width / out_width) + j)]) begin
+                        $display("bad value for input word %d", i);
+                        test_bad = 1;
+                    end
+                end
+            end
+            if (test_bad == 1) begin
+                $finish;
+            end
         end
 
         $finish;

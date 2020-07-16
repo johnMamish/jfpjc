@@ -10,11 +10,12 @@ module width_adapter_buffer(input                      clock,
                             input                      nreset,
 
                             input                      data_in_valid,
-                            input [31:0]               data_in,
+                            input [input_width - 1:0]  data_in,
 
                             output reg                 data_out_valid,
-                            output reg [7:0]           data_out);
-    // input_width must be a multiple of output_width.
+                            output reg [output_width - 1:0] data_out);
+    // input_width must be equal to k * output_width for some k > 1.
+    // buffer_depth must be a power of 2.
     parameter integer input_width = 32, output_width = 8, buffer_width = 16, buffer_depth = 256;
     parameter integer num_ebrs = (((input_width - 1) / buffer_width) + 1);
     parameter integer ratio = (input_width / output_width);
@@ -25,6 +26,10 @@ module width_adapter_buffer(input                      clock,
     wire [input_width  - 1 : 0] data_out_wire;
     reg [$clog2(ratio) - 1 : 0] data_out_latch_slice_select;
     reg data_out_latch_valid;
+
+  initial begin
+    $display("%d %d %d ", num_ebrs, ratio, data_out_latch_slice_select_max_value);
+  end
 
     genvar i;
     generate
@@ -88,7 +93,7 @@ module width_adapter_buffer(input                      clock,
                 data_out_ptr <= data_out_ptr;
             end
 
-            data_out <= data_out_wire[(data_out_latch_slice_select * 8) +: 8];
+            data_out <= data_out_wire[(data_out_latch_slice_select * output_width) +: output_width];
             data_out_valid <= data_out_latch_valid;
         end else begin
             data_out_ptr <= 'h0;
