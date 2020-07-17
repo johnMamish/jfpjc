@@ -1,5 +1,6 @@
 *.jpg
 *.bak
+*.log
 
 # yosys output files
 # .json is used for sending to nextpnr
