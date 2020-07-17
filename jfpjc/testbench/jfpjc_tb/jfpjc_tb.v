@@ -48,69 +48,17 @@ module jfpjc_tb();
     // empty out DCT output buffers whenever a new result is available.
     reg signed [15:0] dct_result [0:(320 * 240) - 1];
     integer outbuf_idx; initial outbuf_idx = 0;
-    always @(posedge clock) begin : DCT_ingestion
-        integer j;
-//`define _ENABLE_DCT_INGESTION_QUANT
-`define _READ_FROM_HUFFMAN_OUTPUT
-`ifdef _ENABLE_DCT_INGESTION_QUANT
-        reg [1:0] quantizer_output_buffer_prev;
+    always @(posedge clock) begin : store_output
+        if (compressor_data_good) begin
+            huffman_out[outbuf_idx] = compressor_data_out;
+            outbuf_idx = outbuf_idx + 1;
 
-        if (compressor.quotient_valid) begin
-            dct_result[outbuf_idx] <= compressor.quotient;
-            outbuf_idx <= outbuf_idx + 1;
-        end
- `elsif _READ_FROM_HUFFMAN_OUTPUT
-        if (compressor.bit_packer_data_out_valid) begin
-            for (j = 3; j >= 0; j = j - 1) begin
-                huffman_out[outbuf_idx] = compressor.bit_packer_data_out[(j * 8) +: 8];
-                outbuf_idx = outbuf_idx + 1;
-
-                // bytestuff
-                if (compressor.bit_packer_data_out[(j * 8) +: 8] == 8'hff) begin
-                    huffman_out[outbuf_idx] = 8'h00;
-                    outbuf_idx = outbuf_idx + 1;
-                end
-            end
-        end
-
-/*        if ((quantizer_output_buffer_prev != compressor.quotient_tag[7:6])) begin
-            for (j = 0; j < 64; j = j + 1) begin
-                dct_result[outbuf_idx] =
-                     compressor.quotient_output_mem.mem[j + (quantizer_output_buffer_prev * 64)];
-                outbuf_idx = outbuf_idx + 1;
-            end
-        end*/
-`else
-        reg [1:0] dcts_frontbuffer_prev;
-        dcts_frontbuffer_prev <= compressor.dcts_frontbuffer;
-        if (dcts_frontbuffer_prev != compressor.dcts_frontbuffer) begin
-            // Wish I could do this with a for loop; I'm sure there's a verilog trick, but I
-            // don't know how right now. Right now, verilog is telling me that I can't index
-            // compressor.dcts with a variable because it's a scope index expression.
-            //
-            // There's definately a way to do it with a generate block, but I'll do it later.
-            for (j = 0; j < 64; j = j + 1) begin
-                dct_result[outbuf_idx] = compressor.dcts[0].dct_output_mem.mem[j + (dcts_frontbuffer_prev * 64)];
-                outbuf_idx = outbuf_idx + 1;
-            end
-            for (j = 0; j < 64; j = j + 1) begin
-                dct_result[outbuf_idx] = compressor.dcts[1].dct_output_mem.mem[j + (dcts_frontbuffer_prev * 64)];
-                outbuf_idx = outbuf_idx + 1;
-            end
-            for (j = 0; j < 64; j = j + 1) begin
-                dct_result[outbuf_idx] = compressor.dcts[2].dct_output_mem.mem[j + (dcts_frontbuffer_prev * 64)];
-                outbuf_idx = outbuf_idx + 1;
-            end
-            for (j = 0; j < 64; j = j + 1) begin
-                dct_result[outbuf_idx] = compressor.dcts[3].dct_output_mem.mem[j + (dcts_frontbuffer_prev * 64)];
-                outbuf_idx = outbuf_idx + 1;
-            end
-            for (j = 0; j < 64; j = j + 1) begin
-                dct_result[outbuf_idx] = compressor.dcts[4].dct_output_mem.mem[j + (dcts_frontbuffer_prev * 64)];
+            // bytestuff
+            if (compressor_data_out == 8'hff) begin
+                huffman_out[outbuf_idx] = 8'h00;
                 outbuf_idx = outbuf_idx + 1;
             end
         end
-`endif
     end
 
     integer i, j, k;
@@ -125,7 +73,7 @@ module jfpjc_tb();
 
         //$readmemh("../pictures/checkerboard_highfreq_80x80.hex", hm01b0.hm01b0_image);
         $readmemh("../pictures/boat_gray.hex", hm01b0.hm01b0_image);
-        $image_take_dcts(hm01b0.hm01b0_image, dct_testmem, 320, 240);
+        //$image_take_dcts(hm01b0.hm01b0_image, dct_testmem, 320, 240);
 
         $readmemh("jpeg_header_info.hextestcase", fixed_header_info);
         $readmemh("quantization_table.hextestcase", fixed_header_info, `QUANT_TABLE_OFFSET, `QUANT_TABLE_OFFSET + 64);
@@ -147,8 +95,7 @@ module jfpjc_tb();
         nreset = 1'b1;
 
         // read some number of lines in
-//`define LINES_TO_READ (80 * 8)
-`define LINES_TO_READ (280)
+`define LINES_TO_READ (260)
         for (i = 0; i < `LINES_TO_READ; i = i + 1) begin
             $display("line %d / %d", i, `LINES_TO_READ);
             while (!((hm01b0_hsync == 0))) begin
@@ -159,13 +106,6 @@ module jfpjc_tb();
             end
         end
 
-        //while
-
-        for (i = 0; i < (64 * 40 * 5); i = i + 1) begin
-            if (dct_result[i] !== dct_testmem[i]) begin
-                $display("%d, %h;%h", i, dct_result[i], dct_testmem[i]);
-            end
-        end
         for (i = 0; i < outbuf_idx; i = i + 1) begin
              $write("%h ", huffman_out[i]);
         end
