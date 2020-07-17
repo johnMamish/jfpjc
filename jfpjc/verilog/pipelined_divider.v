@@ -39,7 +39,11 @@ module pipelined_divider(input                      nreset,
     wire signed [15:0] divisor_extend;
     assign divisor_extend = {8'h0, divisor};
     always @(posedge clock) begin
+`ifdef YOSYS
+        quotient_internal[0] <= dividend;
+`else
         quotient_internal[0] <= dividend / divisor_extend;
+`endif
         tag_internal[0] <= tag;
         stages_valid[0] <= input_valid;
         for (i = 1; i < `DIVIDER_PIPELINE_DEPTH; i = i + 1) begin
