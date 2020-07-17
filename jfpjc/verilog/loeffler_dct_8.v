@@ -341,7 +341,8 @@ module loeffler_dct_8(input             clock,
     assign read_src_scratchpad = (ucode_read_src == `SRC_SPAD) ? (1'b1) : (1'b0);
 
     wire [8:0] multiplier_consts;
-    multiplier_constants mulrom(.select(ucode_coeff_select), .out(multiplier_consts));
+    multiplier_constants mulrom(.select(ucode_coeff_select),
+                                .out(multiplier_consts));
 
 
     reg [15:0] operand_bus;
@@ -356,7 +357,12 @@ module loeffler_dct_8(input             clock,
     reg signed [15:0] multiplier_op1;
     wire signed [15:0] multiplier_out_7q8;
     wire signed [31:0] multiplier_out;
-    pipelined_multiplier mul(clock, multiplier_op1, {7'b0, multiplier_consts}, multiplier_out);
+    pipelined_multiplier mul(.clock(clock),
+                             .nreset(nreset),
+                             .a(multiplier_op1),
+                             .b({7'b0, multiplier_consts}),
+                             .out(multiplier_out));
+
     assign multiplier_out_7q8 = multiplier_out[23:8];
 
     reg [15:0] operand2;
