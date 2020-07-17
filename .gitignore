@@ -1,6 +1,13 @@
 *.jpg
 *.bak
 
+# yosys output files
+# .json is used for sending to nextpnr
+*.json
+
+# When I synthesize a design to verilog, I postfix it with _synth. We don't want these files.
+*_synth.v
+
 ##########################
 # emacs
 *~
