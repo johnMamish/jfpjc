@@ -17,7 +17,7 @@
 `define HEIGHT (240)
 
 `define HPADDING (20)
-`define VPADDING (2)
+`define VPADDING (30)
 
 module hm01b0_sim(input      mclk,
                   input      nreset,
