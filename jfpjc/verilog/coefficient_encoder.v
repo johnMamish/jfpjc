@@ -28,6 +28,7 @@ module coefficient_encoder(input signed [15:0] coefficient,
             coded_value = 16'hxxxx;
             coded_value_length = 4'h0;
         end else begin
+            coded_value_length = 'h0;
             for (i = 0; i < 16; i = i + 1) begin
                 if (absolute_value[i]) begin
                     coded_value_length = (i + 1);

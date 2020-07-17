@@ -114,6 +114,7 @@ module jfpjc(input                      nreset,
             assign src_data_in = ((ingester_frontbuffer_select + 1'h1) == 1'h0) ?
                                  ingester_block_dout[dcts_i] :
                                  ingester_block_dout[dcts_i + 5];
+
             wire signed [15:0] dct_result_out;
             loeffler_dct_88 dct(.clock(clock),
                                 .nreset(dct_nreset & nreset),
@@ -249,6 +250,10 @@ module jfpjc(input                      nreset,
 
             `DCTS_STATE_ERR: begin
                 dct_nreset = 1'b1;
+            end
+
+            default: begin
+                dct_nreset = 1'bx;
             end
         endcase // case (DCTs_state)
     end
@@ -456,11 +461,13 @@ module jfpjc(input                      nreset,
     // To accomodate the 32-bit output width of the bit packer (which is a consequence of the
     // worst-case 26-bit per cycle output of the huffman encoding stage), we split the output
     // horizontally over 2 16-bit EBRs
+    wire [31:0] bit_packer_le;
+    assign bit_packer_le = {bit_packer_data_out[0 +: 8], bit_packer_data_out[8 +: 8], bit_packer_data_out[16 +: 8], bit_packer_data_out[24 +: 8]};
     width_adapter_buffer wba(.clock(clock),
                              .nreset(nreset),
 
                              .data_in_valid(bit_packer_data_out_valid),
-                             .data_in(bit_packer_data_out),
+                             .data_in(bit_packer_le),
 
                              .data_out_valid(hsync),
                              .data_out(data_out));
