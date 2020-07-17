@@ -21,7 +21,11 @@ module jfpjc(input                      nreset,
              input                      hm01b0_pixclk,
              input [7:0]                hm01b0_pixdata,
              input                      hm01b0_hsync,
-             input                      hm01b0_vsync);
+             input                      hm01b0_vsync,
+
+             output                     hsync,
+             output reg                 vsync,
+             output     [7:0]           data_out);
 
 
     ////////////////////////////////////////////////////////////////
@@ -50,6 +54,7 @@ module jfpjc(input                      nreset,
 
     // 10x EBR
     genvar ingester_ebrs_gi;
+
     integer ingester_ebrs_gj;
     wire [7:0] ingester_block_dout [0:9];
     wire ingester_block_wren[0:9];
@@ -75,11 +80,13 @@ module jfpjc(input                      nreset,
                                   .dout(ingester_block_dout[ingester_ebrs_gi]));
 
             // zero buffer
+`ifndef YOSYS
             initial begin
                 for (ingester_ebrs_gj = 0; ingester_ebrs_gj < 512; ingester_ebrs_gj = ingester_ebrs_gj + 1) begin
                     jpeg_buffer.mem[ingester_ebrs_gj] = 'h0;
                 end
             end
+`endif
         end
     endgenerate
 
@@ -449,6 +456,12 @@ module jfpjc(input                      nreset,
     // To accomodate the 32-bit output width of the bit packer (which is a consequence of the
     // worst-case 26-bit per cycle output of the huffman encoding stage), we split the output
     // horizontally over 2 16-bit EBRs
+    width_adapter_buffer wba(.clock(clock),
+                             .nreset(nreset),
 
+                             .data_in_valid(bit_packer_data_out_valid),
+                             .data_in(bit_packer_data_out),
 
+                             .data_out_valid(hsync),
+                             .data_out(data_out));
 endmodule

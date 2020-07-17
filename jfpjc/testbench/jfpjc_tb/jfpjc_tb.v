@@ -20,13 +20,18 @@ module jfpjc_tb();
                       .hsync(hm01b0_hsync),
                       .vsync(hm01b0_vsync));
 
+    wire compressor_data_good;
+    wire [7:0] compressor_data_out;
     jfpjc compressor(.nreset(nreset),
                      .clock(clock),
 
                      .hm01b0_pixclk(hm01b0_pixclk),
                      .hm01b0_pixdata(hm01b0_pixdata),
                      .hm01b0_hsync(hm01b0_hsync),
-                     .hm01b0_vsync(hm01b0_vsync));
+                     .hm01b0_vsync(hm01b0_vsync),
+
+                     .hsync(compressor_data_good),
+                     .data_out(compressor_data_out));
 
     // generate hm01b0 clock
     always begin

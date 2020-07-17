@@ -17,6 +17,7 @@ VERILOG_FILES+= $(VERILOG)/ice40_ebr.v
 VERILOG_FILES+= $(VERILOG)/jfpjc.v
 VERILOG_FILES+= $(VERILOG)/pipelined_divider.v
 VERILOG_FILES+= $(VERILOG)/address_zigzagger.v
+VERILOG_FILES+= $(VERILOG)/width_adapter_buffer.v
 
 C_SOURCES:=
 C_SOURCES+= $(C_FILES)/vpi_jpeg_utils.c
