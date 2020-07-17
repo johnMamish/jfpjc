@@ -34,17 +34,18 @@ module width_adapter_buffer(input                      clock,
     genvar i;
     generate
         for (i = 0; i < num_ebrs; i = i + 1) begin: buffers
-            defparam buffer.data_width = buffer_width;
-            defparam buffer.addr_width = $clog2(buffer_depth);
+            //defparam buffer.data_width = buffer_width;
+            //defparam buffer.addr_width = $clog2(buffer_depth);
 
-            ice40_ebr buffer(.din(data_in[(i * buffer_width) +: buffer_width]),
-                             .write_en(data_in_valid),
-                             .waddr(data_in_ptr),
-                             .wclk(clock),
+            ice40_ebr #(.addr_width($clog2(buffer_depth)), .data_width(buffer_width))
+            buffer(.din(data_in[(i * buffer_width) +: buffer_width]),
+                   .write_en(data_in_valid),
+                   .waddr(data_in_ptr),
+                   .wclk(clock),
 
-                             .raddr(data_out_ptr),
-                             .rclk(clock),
-                             .dout(data_out_wire[(i * buffer_width) +: buffer_width]));
+                   .raddr(data_out_ptr),
+                   .rclk(clock),
+                   .dout(data_out_wire[(i * buffer_width) +: buffer_width]));
         end
     endgenerate
 
