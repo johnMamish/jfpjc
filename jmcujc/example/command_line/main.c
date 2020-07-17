@@ -78,7 +78,7 @@ int main(int argc, char** argv)
 
     jmcujc_jpeg_params_t bw_params;
     memcpy(&bw_params, &bw_defaults, sizeof(bw_params));
-    bw_params.jpeg_quantization_tables[0] = &lum_quant_table_low;
+    bw_params.jpeg_quantization_tables[0] = &lum_quant_table_medium;
     bw_params.width = image_slice->width;
     bw_params.height = image_slice->height;
     jmcujc_write_headers(&component, 1, &bw_params, data);
@@ -86,14 +86,6 @@ int main(int argc, char** argv)
     jmcujc_add_eoi_marker(&bw_params, data);
 
     //print_component(&component);
-
-    uint32_t a = 0x5555f00f;
-    uint32_t b = 0x80000000;
-    uint32_t c = 0x637aa736;
-    printf("rbit %08x = %08x\n", a, __RBIT(a));
-    printf("rbit %08x = %08x\n", b, __RBIT(b));
-    printf("rbit %08x = %08x\n", c, __RBIT(c));
-    printf("roundf(-3.6) = %i, roundf(-3.3) = %i\n", (int)roundf(-3.6), (int)roundf(-3.3));
 
     FILE* outfile = fopen(argv[2], "wb");
     if (outfile == NULL) {
@@ -109,9 +101,6 @@ int main(int argc, char** argv)
     }
 
     fclose(outfile);
-
-
-
 
     jmcujc_bytearray_destroy(data);
 
