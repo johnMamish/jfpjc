@@ -40,7 +40,7 @@ module hm01b0_ingester #(parameter width_pix = 320,
         end
     endgenerate*/
 
-    reg hm01b0_pixclk_prev;
+    reg hm01b0_pixclk_prev [0:1];
     //reg [$clog2(width_pix) - 1:0] px;
     reg [2:0] px;
     reg [2:0] py;
@@ -49,11 +49,12 @@ module hm01b0_ingester #(parameter width_pix = 320,
     reg [$clog2(ebr_size / 64) - 1 : 0] mcunum_div_num_ebr;
     always @(posedge clock) begin
         if (nreset) begin
-            hm01b0_pixclk_prev <= hm01b0_pixclk;
+            hm01b0_pixclk_prev[0] <= hm01b0_pixclk;
+            hm01b0_pixclk_prev[1] <= hm01b0_pixclk_prev[0];
 
             // mind the edge direction: sparkfun code seems to think that this is rising edge, but
             // other sources disagree.
-            if ((hm01b0_pixclk && !hm01b0_pixclk_prev) &&
+            if ((!hm01b0_pixclk_prev[1] && hm01b0_pixclk_prev[0]) &&
                 (hm01b0_hsync)) begin
                 wren <= 1'b1;
                 output_pixval <= hm01b0_pixdata + 8'h80;
@@ -149,7 +150,8 @@ module hm01b0_ingester #(parameter width_pix = 320,
             output_pixval <= 'hxx;
             wren <= 'h0;
 
-            hm01b0_pixclk_prev <= 1'b0;
+            hm01b0_pixclk_prev[0] <= hm01b0_pixclk;
+            hm01b0_pixclk_prev[1] <= hm01b0_pixclk;
             px <= 'h0;
             mcunum_div_num_ebr <= 'h0;
             mcux <= 'h0;
