@@ -27,10 +27,6 @@ module width_adapter_buffer(input                      clock,
     reg [$clog2(ratio) - 1 : 0] data_out_latch_slice_select;
     reg data_out_latch_valid;
 
-  initial begin
-    $display("%d %d %d ", num_ebrs, ratio, data_out_latch_slice_select_max_value);
-  end
-
     genvar i;
     generate
         for (i = 0; i < num_ebrs; i = i + 1) begin: buffers
