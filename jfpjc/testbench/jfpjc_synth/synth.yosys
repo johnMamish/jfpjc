@@ -1,0 +1,21 @@
+read_verilog ../../verilog/address_zigzagger.v
+read_verilog ../../verilog/bitpacker.v
+read_verilog ../../verilog/bytestuffer.v
+read_verilog ../../verilog/coefficient_encoder.v
+read_verilog ../../verilog/fixed_point_consts.v
+read_verilog ../../verilog/hm01b0_ingester.v
+read_verilog ../../verilog/ice40_ebr.v
+read_verilog ../../verilog/jfpjc.v
+read_verilog ../../verilog/jpeg_huffman_encode.v
+read_verilog ../../verilog/loeffler_dct_88.v
+read_verilog ../../verilog/loeffler_dct_8.v
+read_verilog ../../verilog/pipelined_multiplier.v
+read_verilog ../../verilog/
+read_verilog ../../verilog/width_adapter_buffer.v
+read_verilog ../../verilog/pipelined_divider.v
+
+synth_ice40 -dsp -top jfpjc
+
+rename -top jfpjc_synth
+
+write_verilog jfpjc_synth.v

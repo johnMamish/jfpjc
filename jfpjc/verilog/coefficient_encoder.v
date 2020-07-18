@@ -29,11 +29,25 @@ module coefficient_encoder(input signed [15:0] coefficient,
             coded_value_length = 4'h0;
         end else begin
             coded_value_length = 'h0;
-            for (i = 0; i < 16; i = i + 1) begin
-                if (absolute_value[i]) begin
-                    coded_value_length = (i + 1);
-                end
-            end
+
+            // just gonna unroll this loop myself? yosys complains about the index variable i being
+            // an inferred latch...
+            coded_value_length = 0;
+            if (absolute_value[0]) coded_value_length = 1;
+            if (absolute_value[1]) coded_value_length = 2;
+            if (absolute_value[2]) coded_value_length = 3;
+            if (absolute_value[3]) coded_value_length = 4;
+            if (absolute_value[4]) coded_value_length = 5;
+            if (absolute_value[5]) coded_value_length = 6;
+            if (absolute_value[6]) coded_value_length = 7;
+            if (absolute_value[7]) coded_value_length = 8;
+            if (absolute_value[8]) coded_value_length = 9;
+            if (absolute_value[9]) coded_value_length = 10;
+            if (absolute_value[10]) coded_value_length = 11;
+            if (absolute_value[11]) coded_value_length = 12;
+            if (absolute_value[12]) coded_value_length = 13;
+            if (absolute_value[13]) coded_value_length = 14;
+            if (absolute_value[14]) coded_value_length = 15;
 
             if (coefficient[15]) begin
                 coded_value = coefficient + ((1 << coded_value_length) - 16'h1);

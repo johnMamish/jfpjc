@@ -145,7 +145,7 @@ module hm01b0_ingester #(parameter width_pix = 320,
             // RESET
             output_block_select <= 'h0;
             frontbuffer_select <= 'h0;
-            output_write_addr <= 'h0;
+            //output_write_addr <= 'h0;
             output_pixval <= 'hxx;
             wren <= 'h0;
 
