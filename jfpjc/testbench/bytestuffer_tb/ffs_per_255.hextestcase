@@ -1,0 +1,11 @@
+// Initializes array describing how often 0xff should occur in different test cases.
+0
+1
+2
+3
+5
+10
+100
+1000
+10000
+100000
