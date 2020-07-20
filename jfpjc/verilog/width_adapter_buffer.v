@@ -2,6 +2,25 @@
  * This output buffer takes 32-bit inputs and outputs them in parallel as 8-bit words.
  *
  * It consumes 2 EBRs internally.
+ *
+ * In the basic use case for jfpjc, this module ingests up to 32 bits per clock cycle, but can only
+ * output 8 bits per clock cycle. This means that - on average - we can support a maximum of 1 valid
+ * input word every 4 clock cycles. This is completely appropriate for our JPEG application, as
+ * discussed below:
+ *
+ * What's the longest Huffman-coded MCU that we could have?
+ * DC component:   (9 bits huffman) + (11 bits value) = 20 bits
+ * AC components: ((16 bits huffman) + (10 bits value)) * 63 = 1638 bits
+ * total = 1658 bits = 207.25 bytes
+ * round it up to 256 bytes; that's 1/2 EBR every MCU.
+ * We get 1 MCU every 64 clock cycles, worst case scenario. Amortized we get 5 MCUs every
+ * 915 clock cycles. This is a worst case scenario of 1280 bytes / 915 clock cycles, which will
+ * overrun the output circuitry. It's worth pointing out, however, that this worst-case scenario
+ * is EXTRAORDINARILY unlikely (and indeed impossible with 8-bit precision). Moreover, with sane
+ * quantization, it is impossible.
+ *
+ * If we find that it ever happens, we can just clock the output buffers twice as fast as the
+ * rest of the circuitry, and it will be fine.
  */
 
 `timescale 1ns/100ps
@@ -30,9 +49,6 @@ module width_adapter_buffer(input                      clock,
     genvar i;
     generate
         for (i = 0; i < num_ebrs; i = i + 1) begin: buffers
-            //defparam buffer.data_width = buffer_width;
-            //defparam buffer.addr_width = $clog2(buffer_depth);
-
             ice40_ebr #(.addr_width($clog2(buffer_depth)), .data_width(buffer_width))
             buffer(.din(data_in[(i * buffer_width) +: buffer_width]),
                    .write_en(data_in_valid),
