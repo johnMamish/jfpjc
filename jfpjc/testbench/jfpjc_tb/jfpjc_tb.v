@@ -52,12 +52,6 @@ module jfpjc_tb();
         if (compressor_data_good) begin
             huffman_out[outbuf_idx] = compressor_data_out;
             outbuf_idx = outbuf_idx + 1;
-
-            // bytestuff
-            if (compressor_data_out == 8'hff) begin
-                huffman_out[outbuf_idx] = 8'h00;
-                outbuf_idx = outbuf_idx + 1;
-            end
         end
     end
 
@@ -76,8 +70,8 @@ module jfpjc_tb();
         //$image_take_dcts(hm01b0.hm01b0_image, dct_testmem, 320, 240);
 
         $readmemh("../common_data/jpeg_header_info.hextestcase", fixed_header_info);
-        $readmemh("../common_data/quantization_table.hextestcase", fixed_header_info, `QUANT_TABLE_OFFSET, `QUANT_TABLE_OFFSET + 64);
-        $readmemh("../common_data/quantization_table.hextestcase", compressor.quantization_table_ebr.mem);
+        $readmemh("./quantization_table.hextestcase", fixed_header_info, `QUANT_TABLE_OFFSET, `QUANT_TABLE_OFFSET + 64);
+        $readmemh("./quantization_table.hextestcase", compressor.quantization_table_ebr.mem);
 
         for (i = 0; i < 5; i = i + 1) begin
             $dumpvars(1, compressor.dct_buffer_fetch_addr[i]);

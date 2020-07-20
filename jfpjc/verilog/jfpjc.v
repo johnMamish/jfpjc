@@ -439,36 +439,26 @@ module jfpjc(input                      nreset,
                      .data_out_valid(bit_packer_data_out_valid),
                      .data_out(bit_packer_data_out));
 
-    // byte-packer (I guess we could do this with a very shallow EBR-based FIFO).
-    // byte-packer could just go at the very end right before the output to the MCU. But... that's
-    // an issue because there are 0xff's in the header information.
 
-
-    // What's the longest Huffman-coded MCU that we could have?
-    // DC component:   (9 bits huffman) + (11 bits value) = 20 bits
-    // AC components: ((16 bits huffman) + (10 bits value)) * 63 = 1638 bits
-    // total = 1658 bits = 207.25 bytes
-    // round it up to 256 bytes; that's 1/2 EBR every MCU.
-    // We get 1 MCU every 64 clock cycles, worst case scenario. Amortized we get 5 MCUs every
-    // 915 clock cycles. This is a worst case scenario of 1280 bytes / 915 clock cycles, which will
-    // overrun the output circuitry. It's worth pointing out, however, that this worst-case scenario
-    // is EXTRAORDINARILY unlikely (and indeed impossible with 8-bit precision). Moreover, with sane
-    // quantization, it is impossible.
-    //
-    // If we find that it ever happens, we can just clock the output buffers twice as fast as the
-    // rest of the circuitry, and it will be fine.
-
-    // To accomodate the 32-bit output width of the bit packer (which is a consequence of the
-    // worst-case 26-bit per cycle output of the huffman encoding stage), we split the output
-    // horizontally over 2 16-bit EBRs
     wire [31:0] bit_packer_le;
+    wire        wab_data_out_valid;
+    wire  [7:0] wab_data_out;
     assign bit_packer_le = {bit_packer_data_out[0 +: 8], bit_packer_data_out[8 +: 8], bit_packer_data_out[16 +: 8], bit_packer_data_out[24 +: 8]};
-    width_adapter_buffer wba(.clock(clock),
+    width_adapter_buffer wab(.clock(clock),
                              .nreset(nreset),
 
                              .data_in_valid(bit_packer_data_out_valid),
                              .data_in(bit_packer_le),
 
-                             .data_out_valid(hsync),
-                             .data_out(data_out));
+                             .data_out_valid(wab_data_out_valid),
+                             .data_out(wab_data_out));
+    defparam wab.input_width = 32;
+    defparam wab.output_width = 8;
+
+    bytestuffer bytestuffer(.clock(clock),
+                            .nreset(nreset),
+                            .data_in_valid(wab_data_out_valid),
+                            .data_in(wab_data_out),
+                            .data_out_valid(hsync),
+                            .data_out(data_out));
 endmodule
