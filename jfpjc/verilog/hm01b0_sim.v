@@ -23,7 +23,7 @@ module hm01b0_sim(input      mclk,
                   input      nreset,
 
                   output reg clock,
-                  output wire [7:0] pixdata,
+                  output reg  [7:0] pixdata,
 
                   output reg hsync,
                   output reg vsync);
@@ -33,7 +33,7 @@ module hm01b0_sim(input      mclk,
     reg [15:0] ptrx;
     reg [15:0] ptry;
 
-    always @ (posedge mclk) begin
+    always @ (negedge mclk) begin
         if (nreset) begin
             if (ptrx == ((`WIDTH + `HPADDING) - 1)) begin
                 ptrx <= 16'h0;
@@ -59,9 +59,14 @@ module hm01b0_sim(input      mclk,
 
     // for some reason, putting hm01b0_image (an array of 76800 items) inside an always @* block
     // really upsets iverilog, so we need to use these assign statements on pixdata.
-    assign pixdata = ((ptrx < `WIDTH) && (ptry < `HEIGHT)) ?
-                     hm01b0_image[(ptry * `WIDTH) + ptrx] :
-                     8'hxx;
+    wire [7:0] pixdata_i;
+    assign pixdata_i = ((ptrx < `WIDTH) && (ptry < `HEIGHT)) ?
+                       hm01b0_image[(ptry * `WIDTH) + ptrx] :
+                       8'hxx;
+    always @* begin
+        // in case you want to add a delay
+        pixdata = pixdata_i;
+    end
 
     always @* begin
         // Unclear if this is the right vsync/hsync behavior. Need to check with a scope.

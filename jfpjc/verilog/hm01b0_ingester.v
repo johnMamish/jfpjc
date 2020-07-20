@@ -10,45 +10,33 @@
  */
 `define SYNCHRONOUS
 `ifdef SYNCHRONOUS
-module hm01b0_ingester #(parameter width_pix = 320,
-                         parameter height_pix = 240,
-                         parameter num_ebr = 5,
-                         parameter ebr_size = 512)
+module hm01b0_ingester(input                      clock,
+                       input                      nreset,
 
-    (input                      clock,
-     input                      nreset,
+                       input                      hm01b0_pixclk,
+                       input [7:0]                hm01b0_pixdata,
+                       input                      hm01b0_hsync,
+                       input                      hm01b0_vsync,
 
-     input                      hm01b0_pixclk,
-     input [7:0]                hm01b0_pixdata,
-     input                      hm01b0_hsync,
-     input                      hm01b0_vsync,
+                       output reg [($clog2(num_ebr) - 1):0] output_block_select,
+                       output reg [0:0]           frontbuffer_select,
+                       output reg [($clog2(ebr_size) - 1):0] output_write_addr,
+                       output reg [7:0]           output_pixval,
+                       output reg [0:0]           wren);
+    localparam width_pix = 320, height_pix = 240, num_ebr = 5, ebr_size = 512;
 
-     output reg [($clog2(num_ebr) - 1):0] output_block_select,
-     output reg [0:0]           frontbuffer_select,
-     output reg [($clog2(ebr_size) - 1):0] output_write_addr,
-     output reg [7:0]           output_pixval,
-     output reg [0:0]           wren);
 
-    // we need enough EBRs to hold all the pixels
-    /*generate
-        if (((width_pix % 8) != 0) ||
-            ((height_pix % 8) != 0) ||
-            (width_pix * 8) >= (num_ebr * ebr_size)) begin
-        if (0) begin
-            __error_module invalid_parameters();
-        end else begin
-        end
-    endgenerate*/
-
+    reg [7:0] hm01b0_pixdata_prev;
     reg hm01b0_pixclk_prev [0:1];
-    //reg [$clog2(width_pix) - 1:0] px;
     reg [2:0] px;
     reg [2:0] py;
     reg [$clog2(width_pix / 8) - 1 : 0] mcux;
+
     // TODO: does this name make sense given the consts used to size it?
     reg [$clog2(ebr_size / 64) - 1 : 0] mcunum_div_num_ebr;
     always @(posedge clock) begin
         if (nreset) begin
+            hm01b0_pixdata_prev <= hm01b0_pixdata;
             hm01b0_pixclk_prev[0] <= hm01b0_pixclk;
             hm01b0_pixclk_prev[1] <= hm01b0_pixclk_prev[0];
 
@@ -57,7 +45,7 @@ module hm01b0_ingester #(parameter width_pix = 320,
             if ((!hm01b0_pixclk_prev[1] && hm01b0_pixclk_prev[0]) &&
                 (hm01b0_hsync)) begin
                 wren <= 1'b1;
-                output_pixval <= hm01b0_pixdata + 8'h80;
+                output_pixval <= hm01b0_pixdata_prev + 8'h80;
             end else begin
                 wren <= 1'b0;
                 output_pixval <= 8'hxx;
@@ -146,7 +134,6 @@ module hm01b0_ingester #(parameter width_pix = 320,
             // RESET
             output_block_select <= 'h0;
             frontbuffer_select <= 'h0;
-            //output_write_addr <= 'h0;
             output_pixval <= 'hxx;
             wren <= 'h0;
 
