@@ -21,8 +21,8 @@ module bytestuffer_tb();
                             .overflow(overflow));
 
 
-    localparam NUM_TESTS = 1;
-    localparam BYTES_PER_TEST = 1000;
+    localparam NUM_TESTS = 10;
+    localparam BYTES_PER_TEST = 10000;
     integer data_in_ptr, data_out_ptr;
     reg [7:0] data_in_mem [0 : BYTES_PER_TEST - 1];
     reg [7:0] data_out_mem [0 : (2 * BYTES_PER_TEST) - 1];
@@ -35,9 +35,9 @@ module bytestuffer_tb();
             end
         end else begin
             data_out_ptr = 0;
-            /*for (i = 0; i < (2 * BYTES_PER_TEST); i = i + 1) begin
-                data_out_mem[i] = 8'h00;
-            end*/
+            for (i = 0; i < (2 * BYTES_PER_TEST); i = i + 1) begin
+                data_out_mem[i] = 8'hxx;
+            end
         end
     end
 
@@ -95,7 +95,6 @@ module bytestuffer_tb();
             i = 0;
             j = 0;
             while (i < BYTES_PER_TEST) begin : test_check_loop
-                $display("%h %h", data_in_mem[i], data_out_mem[j]);
                 if (data_in_mem[i] !== data_out_mem[j]) begin
                     $display("Input/Output mismatch at output index 0x%h", j);
                 end

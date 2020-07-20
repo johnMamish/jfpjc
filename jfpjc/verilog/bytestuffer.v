@@ -126,11 +126,16 @@ module bytestuffer(input               clock,
                 overflow <= overflow;
             end
 
+            data_in_ptr <= data_in_ptr_next;
+            data_out_ptr <= data_out_ptr_next;
+
             data_out_valid <= data_out_valid_next;
             data_out <= data_out_next;
             data_out_ptr <= data_out_ptr_next;
             bytestuffer_state <= bytestuffer_state_next;
         end else begin
+            data_in_ptr <= 9'h000;
+            data_out_ptr <= 9'h000;
             data_out_valid <= 1'b0;
             data_out <= 8'h0;
             bytestuffer_state <= `BYTESTUFFER_STATE_WAIT;
