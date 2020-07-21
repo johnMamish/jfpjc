@@ -24,8 +24,6 @@ module hm01b0_ingester(input                      clock,
                        output reg [7:0]           output_pixval,
                        output reg [0:0]           wren);
     localparam width_pix = 320, height_pix = 240, num_ebr = 5, ebr_size = 512;
-
-
     reg [7:0] hm01b0_pixdata_prev;
     reg hm01b0_pixclk_prev [0:1];
     reg [2:0] px;
@@ -153,7 +151,7 @@ module hm01b0_ingester(input                      clock,
 endmodule
 
 `else // !`ifdef SYNCHRONOUS
-
+// TODO: different module for alternate clock domain for hm01b0 pixclk.
 
 `endif
 

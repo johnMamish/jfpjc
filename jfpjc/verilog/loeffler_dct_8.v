@@ -13,17 +13,17 @@
 `define UCODE_LEN (6'd57)
 
 module multiplier_constants(input [2:0] select,
-                            output reg [8:0] out);
+                            output reg [15:0] out);
     always @ * begin
         case (select)
-            3'd0: out = `_1C3_COS_7Q8;
-            3'd1: out = `_1C3_SIN_7Q8;
-            3'd2: out = `_1C1_COS_7Q8;
-            3'd3: out = `_1C1_SIN_7Q8;
-            3'd4: out = `_R2C1_COS_7Q8;
-            3'd5: out = `_R2C1_SIN_7Q8;
-            3'd6: out = `_SQRT2_7Q8;
-            3'd7: out = `_SQRT2_OVER4_7Q8;
+            3'd0: out = `_1C3_COS_3Q12;
+            3'd1: out = `_1C3_SIN_3Q12;
+            3'd2: out = `_1C1_COS_3Q12;
+            3'd3: out = `_1C1_SIN_3Q12;
+            3'd4: out = `_R2C1_COS_3Q12;
+            3'd5: out = `_R2C1_SIN_3Q12;
+            3'd6: out = `_SQRT2_3Q12;
+            3'd7: out = `_SQRT2_OVER4_3Q12;
         endcase
     end
 endmodule
@@ -163,10 +163,10 @@ module loeffler_dct_8_control_rom(input      [ 5:0] addr,
                                    `OP2_NEGATE, `OP1_NNEGATE, `OP1_RETAIN, `SRC_SPAD,  5'd04 };
 
 
-            // scratchpad[12] = scratchpad[4] * _1C3_COS_7Q8 + scratchpad[7] * _1C3_SIN_7Q8
-            // scratchpad[15] = -scratchpad[4] * _1C3_SIN_7Q8 + scratchpad[7] * _1C3_COS_7Q8
-            // scratchpad[13] = scratchpad[5] * _1C1_COS_7Q8 + scratchpad[6] * _1C1_COS_7Q8
-            // scratchpad[14] = -scratchpad[5] * _1C1_SIN_7Q8 + scratchpad[6] * _1C1_COS_7Q8
+            // scratchpad[12] = scratchpad[4] * _1C3_COS + scratchpad[7] * _1C3_SIN
+            // scratchpad[15] = -scratchpad[4] * _1C3_SIN + scratchpad[7] * _1C3_COS
+            // scratchpad[13] = scratchpad[5] * _1C1_COS + scratchpad[6] * _1C1_COS
+            // scratchpad[14] = -scratchpad[5] * _1C1_SIN + scratchpad[6] * _1C1_COS
             6'd25:    control = { `WRITE_SRC_ADDER, `WRITE_NEN, `WRITE_SPAD, 5'hxx, 3'h0, `OP2_SRC_DC, `OP1_SRC_DC,
                                   `OP2_NNEGATE, `OP1_NNEGATE, `OP1_RETAIN, `SRC_SPAD, 5'd07 };
             6'd26:    control = { `WRITE_SRC_ADDER, `WRITE_NEN, `WRITE_SPAD, 5'hxx, 3'h1, `OP2_SRC_DC, `OP1_SRC_DC,
@@ -233,9 +233,9 @@ module loeffler_dct_8_control_rom(input      [ 5:0] addr,
             6'd52:    control = { `WRITE_SRC_ADDER, `WRITE_EN, `WRITE_OUT, 5'd1, 3'hx, `OP2_SRC_MEM, `OP1_SRC_DC,      // op_latch + sp[21] -> out[1]
                                   `OP2_NNEGATE, `OP1_NNEGATE, `OP1_RETAIN, `SRC_SPAD, 5'd21 };
 
-            6'd53:    control = { `WRITE_SRC_ADDER, `WRITE_NEN, `WRITE_SPAD, 5'hxx, 3'h6, `OP2_SRC_DC, `OP1_SRC_DC,    // sp[21] and _SQRT2_7Q8 enter multiplier
+            6'd53:    control = { `WRITE_SRC_ADDER, `WRITE_NEN, `WRITE_SPAD, 5'hxx, 3'h6, `OP2_SRC_DC, `OP1_SRC_DC,    // sp[21] and _SQRT2 enter multiplier
                                   `OP2_NNEGATE, `OP1_NNEGATE, `OP1_RETAIN, `SRC_SPAD, 5'd22 };
-            6'd54:    control = { `WRITE_SRC_ADDER, `WRITE_NEN, `WRITE_SPAD, 5'hxx, 3'h6, `OP2_SRC_DC, `OP1_SRC_DC,    // sp[22] and _SQRT2_7Q8 enter multiplier
+            6'd54:    control = { `WRITE_SRC_ADDER, `WRITE_NEN, `WRITE_SPAD, 5'hxx, 3'h6, `OP2_SRC_DC, `OP1_SRC_DC,    // sp[22] and _SQRT2 enter multiplier
                                   `OP2_NNEGATE, `OP1_NNEGATE, `OP1_RETAIN, `SRC_SPAD, 5'hxx };
 
             6'd55:    control = { `WRITE_SRC_MUL, `WRITE_EN, `WRITE_OUT, 5'd3, 3'hx, `OP2_SRC_DC, `OP1_SRC_DC,
@@ -283,7 +283,7 @@ module loeffler_dct_8(input             clock,
                       input             nreset,
 
                       output    [2:0]  fetch_addr,
-                      input     [15:0]  src_data_in,
+                      input     [15:0]  src_data_in_3q12,
 
                       output    [4:0]  scratchpad_read_addr,
                       input     [15:0]  scratchpad_read_data,
@@ -340,7 +340,7 @@ module loeffler_dct_8(input             clock,
     assign scratchpad_read_addr = ucode_readaddr[4:0];
     assign read_src_scratchpad = (ucode_read_src == `SRC_SPAD) ? (1'b1) : (1'b0);
 
-    wire [8:0] multiplier_consts;
+    wire [15:0] multiplier_consts;
     multiplier_constants mulrom(.select(ucode_coeff_select),
                                 .out(multiplier_consts));
 
@@ -350,35 +350,28 @@ module loeffler_dct_8(input             clock,
         if (ucode_read_src_delayed) begin
             operand_bus = scratchpad_read_data;
         end else begin
-            operand_bus = src_data_in;
+            operand_bus = src_data_in_3q12;
         end
     end
 
     reg signed [15:0] multiplier_op1;
-    wire signed [15:0] multiplier_out_7q8;
+    wire signed [15:0] multiplier_out_3q12;
     wire signed [31:0] multiplier_out;
     pipelined_multiplier #(.SB_MAC16(1)) mul(.clock(clock),
                                              .nreset(nreset),
                                              .a(multiplier_op1),
-                                             .b({7'b0, multiplier_consts}),
+                                             .b(multiplier_consts),
                                              .out(multiplier_out));
 
-    assign multiplier_out_7q8 = multiplier_out[23:8];
-
-    wire signed [31:0] mulcheck_out;
-    pipelined_multiplier #(.SB_MAC16(0)) mulcheck(.clock(clock),
-                                                  .nreset(nreset),
-                                                  .a(multiplier_op1),
-                                                  .b({7'b0, multiplier_consts}),
-                                                  .out(mulcheck_out));
-    wire oops;
-    assign oops = (mulcheck_out !== multiplier_out);
+    // 7q8 * 7q8 = 14q16
+    // 3q12 * 3q12 = 6q24
+    assign multiplier_out_3q12 = multiplier_out[(12 + 15):12];
 
     reg [15:0] operand2;
     always @ * begin
         case (ucode_op2_sel)
             `OP2_SRC_MEM: operand2 = operand_bus;
-            `OP2_SRC_MUL: operand2 = multiplier_out_7q8;
+            `OP2_SRC_MUL: operand2 = multiplier_out_3q12;
         endcase
     end
 
@@ -397,7 +390,7 @@ module loeffler_dct_8(input             clock,
             if (ucode_latch_operand1) begin
                 case (ucode_op1_src)
                     `OP1_SRC_MEM: operand_latch <= operand_bus;
-                    `OP1_SRC_MUL: operand_latch <= multiplier_out_7q8;
+                    `OP1_SRC_MUL: operand_latch <= multiplier_out_3q12;
                 endcase
             end else begin
                 operand_latch <= operand_latch;
@@ -422,7 +415,7 @@ module loeffler_dct_8(input             clock,
                 2'b11: arithmetic_result = -operand_latch - operand2;
             endcase
         end else begin
-            arithmetic_result = multiplier_out_7q8;
+            arithmetic_result = multiplier_out_3q12;
         end
         scratchpad_write_data = arithmetic_result;
         result_out = (result_wren) ? (arithmetic_result) : (16'h0000);

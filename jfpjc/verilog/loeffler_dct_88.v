@@ -88,7 +88,7 @@ module loeffler_dct_88(input             clock,
 
     // Instantiate 1d DCT core
     wire [2:0] dct_1d_fetch_addr;
-    reg [15:0] dct_1d_src_data_in;
+    reg [15:0] dct_1d_src_data_in_3q12;
 
     wire [4:0] dct_1d_scratchpad_read_addr;
     reg [15:0] dct_1d_scratchpad_read_data;
@@ -107,7 +107,7 @@ module loeffler_dct_88(input             clock,
                           .nreset(dct_1d_reset),
 
                           .fetch_addr(dct_1d_fetch_addr),
-                          .src_data_in(dct_1d_src_data_in),
+                          .src_data_in_3q12(dct_1d_src_data_in_3q12),
 
                           .scratchpad_read_addr(dct_1d_scratchpad_read_addr),
                           .scratchpad_read_data(dct_1d_scratchpad_read_data),
@@ -147,8 +147,6 @@ module loeffler_dct_88(input             clock,
 
 
     always @ * begin
-        //src_data_in = { {8{src_data_in[7]}}, src_data_in[7:0] };
-
         // The address that we want to read input data from this cycle
         // TODO: it would be nice if a read enable signal was provided from dct8_1d for power saving
         fetch_addr = rowcol_sweep_read_addr;
@@ -175,9 +173,9 @@ module loeffler_dct_88(input             clock,
         // If we are doing transforms 0 - 7, we read from the input memory, otherwise, we read
         // from the intermediate results in temp memory.
         if (xform_number < 4'h8) begin
-            dct_1d_src_data_in = { {8{src_data_in[7]}}, src_data_in[7:0] };
+            dct_1d_src_data_in_3q12 = { {4{src_data_in[7]}}, src_data_in[7:0], 4'h0 };
         end else begin
-            dct_1d_src_data_in = tempmem_read_data;
+            dct_1d_src_data_in_3q12 = tempmem_read_data;
         end
 
         // muxes for data going into temp memory

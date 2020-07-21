@@ -128,9 +128,13 @@ module jfpjc(input                      nreset,
 
                                 .finished(dcts_finished[dcts_i]));
 
+            // round and convert 3q12 result to 7q8
+            wire signed [15:0] dct_result_out_7q8;
+            assign dct_result_out_7q8 = (dct_result_out + 16'sh0008) >>> 4;
+
             wire [7:0] dct_buffered_write_addr;
             assign dct_buffered_write_addr = {dcts_frontbuffer, dct_result_write_addr};
-            ice40_ebr #(.addr_width(8), .data_width(16)) dct_output_mem(.din(dct_result_out),
+            ice40_ebr #(.addr_width(8), .data_width(16)) dct_output_mem(.din(dct_result_out_7q8),
                                                                         .write_en(dct_result_wren),
                                                                         .waddr(dct_buffered_write_addr),
                                                                         .wclk(clock),
