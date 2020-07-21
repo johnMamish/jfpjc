@@ -11,11 +11,12 @@ try:
 except (FileNotFoundError, ValueError, IndexError) as e:
     print("failed to open file " + sys.argv[1])
     print(e);
-    quit()
+    quit(1)
 
+# if the image is too small, this will add borders around the edges.
 new_im = Image.new('L', (320, 240), color=(0))
 new_im.paste(img);
-new_im.show()
+#new_im.show()
 
 pix = np.array(new_im)
 

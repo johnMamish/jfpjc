@@ -15,6 +15,6 @@ if __name__ == "__main__":
         img2 = Image.open(sys.argv[2])
     except (FileNotFoundError) as e:
         print(e)
-        quit(0)
+        quit(1)
 
-    print(np.linalg.norm(np.array(img1).flatten() - np.array(img2).flatten()))
+    print("Difference score: " + str(np.linalg.norm(np.array(img1).flatten() - np.array(img2).flatten())))
