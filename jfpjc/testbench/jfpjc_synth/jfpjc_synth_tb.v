@@ -62,28 +62,36 @@ module jfpjc_tb();
         #250; clock = ~clock; #250;
     end
 
+    // store output results in buffers
     reg [7:0] huffman_out [0:(1 << 17)];
-
-    // empty out DCT output buffers whenever a new result is available.
-    reg signed [15:0] dct_result [0:(320 * 240) - 1];
+    reg [7:0] synth_huffman_out [0:(1 << 17)];
     integer outbuf_idx; initial outbuf_idx = 0;
+    integer synth_outbuf_idx; initial synth_outbuf_idx = 0;
     always @(posedge clock) begin : store_output
         if (compressor_data_good) begin
             huffman_out[outbuf_idx] = compressor_data_out;
             outbuf_idx = outbuf_idx + 1;
 
-            // bytestuff
             if (compressor_data_out == 8'hff) begin
                 huffman_out[outbuf_idx] = 8'h00;
                 outbuf_idx = outbuf_idx + 1;
             end
         end
+
+        if (compressor_synth_data_good) begin
+            synth_huffman_out[synth_outbuf_idx] = compressor_synth_data_out;
+            synth_outbuf_idx = synth_outbuf_idx + 1;
+
+            // bytestuff
+            if (compressor_synth_data_out == 8'hff) begin
+                synth_huffman_out[synth_outbuf_idx] = 8'h00;
+                synth_outbuf_idx = synth_outbuf_idx + 1;
+            end
+        end
+
     end
 
     integer i, j, k;
-    reg signed [15:0] dct_testmem [0:(320 * 240) - 1];
-    reg signed [15:0] test;
-    reg signed [7:0] test2;
     integer file_handle;
     reg [7:0] fixed_header_info [0:327];
     initial begin
@@ -96,14 +104,7 @@ module jfpjc_tb();
         $readmemh("../common_data/jpeg_header_info.hextestcase", fixed_header_info);
         $readmemh("quantization_table.hextestcase", fixed_header_info, `QUANT_TABLE_OFFSET, `QUANT_TABLE_OFFSET + 64);
         $readmemh("quantization_table.hextestcase", compressor.quantization_table_ebr.mem);
-
-        for (i = 0; i < 5; i = i + 1) begin
-            $dumpvars(1, compressor.dct_buffer_fetch_addr[i]);
-        end
-        for (i = 0; i < 4; i = i + 1) begin
-            $dumpvars(1, compressor.encoder.index[i]);
-        end
-        $dumpvars(1, compressor.encoder.do_rollback[0]); $dumpvars(1, compressor.encoder.do_rollback[1]);
+        //$readmemh("quantization_table.hextestcase", compressor_synth.quantization_table_ebr.mem);
 
         //
         clock = 1'b0;
@@ -135,6 +136,15 @@ module jfpjc_tb();
         end
         for (i = 0; i < outbuf_idx; i = i + 1) begin
             $fwrite(file_handle, "%c", huffman_out[i]);
+        end
+        $fclose(file_handle);
+
+        file_handle = $fopen("output_synth.jpg", "w");
+        for (i = 0; i < 9'h148; i = i + 1) begin
+            $fwrite(file_handle, "%c", fixed_header_info[i]);
+        end
+        for (i = 0; i < synth_outbuf_idx; i = i + 1) begin
+            $fwrite(file_handle, "%c", synth_huffman_out[i]);
         end
         $fclose(file_handle);
 
