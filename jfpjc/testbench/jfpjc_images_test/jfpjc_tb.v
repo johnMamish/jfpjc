@@ -78,7 +78,7 @@ module jfpjc_tb();
         // read some number of lines in
 `define LINES_TO_READ (260)
         for (i = 0; i < `LINES_TO_READ; i = i + 1) begin
-            $write("line %d / %d%c[1A\n", i, `LINES_TO_READ, 8'o33);
+            $fwrite(32'h8000_0002, "line %d / %d%c[1A\n", i, `LINES_TO_READ, 8'o33);
             while (!((hm01b0_hsync == 0))) begin
                 #1000;
             end

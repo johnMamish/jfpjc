@@ -17,4 +17,4 @@ if __name__ == "__main__":
         print(e)
         quit(1)
 
-    print("Difference score: " + str(np.linalg.norm(np.array(img1).flatten() - np.array(img2).flatten())))
+    print(str(np.linalg.norm(np.array(img1).flatten() - np.array(img2).flatten())))

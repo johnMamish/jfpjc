@@ -20,10 +20,6 @@ VERILOG_FILES+= $(VERILOG)/address_zigzagger.v
 VERILOG_FILES+= $(VERILOG)/width_adapter_buffer.v
 VERILOG_FILES+= $(VERILOG)/bytestuffer.v
 
-C_SOURCES:=
-C_SOURCES+= $(C_FILES)/vpi_jpeg_utils.c
-C_SOURCES+= $(C_FILES)/dct_utils.c
-
 # -Wno-sensitivity-entire-array prevents us from generating warnings when we dereference a large
 # array inside of an always @* block.
 #     e.g. warning: @* is sensitive to all 4 words in array 'index'
@@ -33,6 +29,5 @@ C_SOURCES+= $(C_FILES)/dct_utils.c
 VERILOG_WARNING_FLAGS:=
 VERILOG_WARNING_FLAGS+= -Wall -Wno-sensitivity-entire-array
 
-jfpjc_tb.vvp: $(VERILOG_FILES) $(C_SOURCES)
-	iverilog-vpi $(C_FILES)/vpi_jpeg_utils.c $(C_FILES)/dct_utils.c
+jfpjc_tb.vvp: $(VERILOG_FILES)
 	iverilog -I$(VERILOG) $(VERILOG_WARNING_FLAGS) -o $@ $(filter %.v,$^)
