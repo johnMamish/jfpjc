@@ -48,10 +48,11 @@ module bytestuffer_tb();
         #500;
     end
 
+    integer i, j;
     integer ffs_per_255[0 : NUM_TESTS - 1];
     integer testnum, seed_exponential, seed_uniform;
     integer delays [0 : BYTES_PER_TEST - 1];
-    initial begin
+    initial begin : main
         $dumpfile("bytestuffer_tb.vcd");
         $dumpvars(0, bytestuffer_tb);
 
@@ -110,8 +111,44 @@ module bytestuffer_tb();
             end
         end
 
-        // TODO: overflow detect test.
+        // test overflow detection.
+        // If we send in a little less than 1024 (say, 1016) 0xff bytes in a row and then let the
+        // buffer drain, it should be ok. If we send in 1024, 0xff bytes in a row, we expect an
+        // overflow
+        // generate test data to feed in.
+        for (i = 0; i < BYTES_PER_TEST; i = i + 1) begin : test_setup_loop
+            data_in_mem[i] = 8'hff;
+            delays[i] = 0;
+        end
 
+        delays[1016] = 1200;
+
+        nreset = 1'b0;
+        @(posedge clock);
+        @(posedge clock);
+        nreset = #1 1'b1;
+
+        for (i = 0; i < 3000; i = i + 1) begin : test_execute_loop
+            integer overflow_expected;
+            data_in = #1 data_in_mem[i];
+            data_in_valid = #1 1'b1;
+            @(posedge clock);
+
+            for (j = 0; j < delays[i]; j = j + 1) begin
+                data_in_valid = #1 1'b0;
+                @(posedge clock);
+            end
+
+            overflow_expected = #1 (i >= (1016 + 1024 - 1)) ? 1'b1 : 1'b0;
+            if (overflow !== overflow_expected) begin
+                $display("overflow expected to be %d, but was %d", overflow_expected, overflow);
+            end
+        end
+
+        // wait for a few cycles and then check the results
+        for (i = 0; i < 513; i = i + 1) begin
+            @(posedge clock);
+        end
         $finish;
     end
 endmodule
