@@ -66,12 +66,12 @@ module jfpjc_tb();
         $dumpvars(0, jfpjc_tb);
 
         //$readmemh("../pictures/checkerboard_highfreq_80x80.hex", hm01b0.hm01b0_image);
-        $readmemh("../pictures/boat_gray.hex", hm01b0.hm01b0_image);
+        $readmemh("../pictures/peppers_gray_320x240.hex", hm01b0.hm01b0_image);
         //$image_take_dcts(hm01b0.hm01b0_image, dct_testmem, 320, 240);
 
         $readmemh("../common_data/jpeg_header_info.hextestcase", fixed_header_info);
-        $readmemh("./quantization_table.hextestcase", fixed_header_info, `QUANT_TABLE_OFFSET, `QUANT_TABLE_OFFSET + 64);
-        $readmemh("./quantization_table.hextestcase", compressor.quantization_table_ebr.mem);
+        $readmemh("./quantization_table_med.hextestcase", fixed_header_info, `QUANT_TABLE_OFFSET, `QUANT_TABLE_OFFSET + 64);
+        $readmemh("./quantization_table_med.hextestcase", compressor.quantization_table_ebr.mem);
 
         for (i = 0; i < 5; i = i + 1) begin
             $dumpvars(1, compressor.dct_buffer_fetch_addr[i]);
