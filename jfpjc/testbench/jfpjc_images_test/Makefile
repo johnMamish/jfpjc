@@ -19,6 +19,7 @@ VERILOG_FILES+= $(VERILOG)/pipelined_divider.v
 VERILOG_FILES+= $(VERILOG)/address_zigzagger.v
 VERILOG_FILES+= $(VERILOG)/width_adapter_buffer.v
 VERILOG_FILES+= $(VERILOG)/bytestuffer.v
+VERILOG_FILES+= $(VERILOG)/dct_manager_fsm.v
 
 # -Wno-sensitivity-entire-array prevents us from generating warnings when we dereference a large
 # array inside of an always @* block.
