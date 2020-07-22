@@ -148,13 +148,13 @@ module jfpjc(input                      nreset,
 
     ////////////////////////////////////////////////////////////////
     // DCT engine reset logic
-    dct_manager_fsm dct_manager(.clock(clock),
-                                .nreset(nreset),
-                                .ingester_frontbuffer_select(ingester_frontbuffer_select),
-                                .dcts_finished(&dcts_finished),
-                                .mcu_groups_processed(mcu_groups_processed),
-                                .dcts_frontbuffer(dcts_frontbuffer),
-                                .dct_nreset(dct_nreset));
+    dct_reset_manager dct_manager(.clock(clock),
+                                  .nreset(nreset),
+                                  .ingester_frontbuffer_select(ingester_frontbuffer_select),
+                                  .dcts_finished(&dcts_finished),
+                                  .mcu_groups_processed(mcu_groups_processed),
+                                  .dcts_frontbuffer(dcts_frontbuffer),
+                                  .dct_nreset(dct_nreset));
 
     ////////////////////////////////////////////////////////////////
     // quantizer

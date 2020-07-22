@@ -9,15 +9,15 @@
  * When the backbuffer changes, this state machine holds the DCT engines in reset for 3 clock
  * cycles, then sets them loose with new base addresses and output addresses.
  */
-module dct_manager_fsm(input            clock,
-                       input            nreset,
+module dct_reset_manager(input            clock,
+                         input            nreset,
 
-                       input            ingester_frontbuffer_select,
-                       input            dcts_finished,
+                         input            ingester_frontbuffer_select,
+                         input            dcts_finished,
 
-                       output reg [2:0] mcu_groups_processed,
-                       output reg [1:0] dcts_frontbuffer,
-                       output reg       dct_nreset);
+                         output reg [2:0] mcu_groups_processed,
+                         output reg [1:0] dcts_frontbuffer,
+                         output reg       dct_nreset);
 
 `define DCTS_STATE_WAIT_FRAMEBUFFER 3'h0
 `define DCTS_STATE_RESET 3'h1
