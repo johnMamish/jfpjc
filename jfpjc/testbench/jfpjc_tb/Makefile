@@ -20,6 +20,7 @@ VERILOG_FILES+= $(VERILOG)/address_zigzagger.v
 VERILOG_FILES+= $(VERILOG)/width_adapter_buffer.v
 VERILOG_FILES+= $(VERILOG)/bytestuffer.v
 VERILOG_FILES+= $(VERILOG)/dct_reset_manager.v
+VERILOG_FILES+= $(VERILOG)/quantizer_manager_fsm.v
 
 C_SOURCES:=
 C_SOURCES+= $(C_FILES)/vpi_jpeg_utils.c

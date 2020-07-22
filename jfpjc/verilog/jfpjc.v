@@ -97,7 +97,7 @@ module jfpjc(input                      nreset,
     wire [5:0] dct_fetch_addr [0:4];
     wire [4:0] dcts_finished;
     wire [2:0] mcu_groups_processed;
-    reg [7:0] dct_output_read_addr;
+    wire [7:0] dct_output_read_addr;
     wire signed [15:0] dct_output_read_data [0:4];
 
     // 5 * (1 + 1) ebr (10x ebr)
@@ -158,81 +158,31 @@ module jfpjc(input                      nreset,
 
     ////////////////////////////////////////////////////////////////
     // quantizer
-    reg  signed [15:0] dividend;
+    wire [1:0] quantizer_readbuf;
+    wire [5:0] coefficient_index;
+    reg [5:0] coefficient_index_delay;
+    wire [2:0] ebr_index;
+    wire [1:0] quantizer_output_buffer;
+    wire dividend_divisor_valid;
+    always @(posedge clock) coefficient_index_delay <= coefficient_index;
+    quantizer_manager_fsm quantizer_manager(.clock(clock),
+                                            .nreset(nreset),
+                                            .dcts_frontbuffer(dcts_frontbuffer),
+                                            .quantizer_readbuf(quantizer_readbuf),
+                                            .coefficient_index(coefficient_index),
+                                            .ebr_index(ebr_index),
+                                            .quantizer_output_buffer(quantizer_output_buffer),
+                                            .dividend_divisor_valid(dividend_divisor_valid));
+
+    wire signed [15:0] dividend;
     wire        [7:0] divisor;
     reg         [7:0] quotient_tag_in;
-    reg               dividend_divisor_valid;
-
-    reg [0:0] quantizer_state;
-`define QUANTIZER_STATE_WAIT 1'h0
-`define QUANTIZER_STATE_QUANTIZE 1'h1
-    reg [1:0] quantizer_readbuf;
-    reg [5:0] coefficient_index [0:1];
-    reg [2:0] ebr_index [0:1];
-    reg [1:0] quantizer_output_buffer [0:1];
-    always @(posedge clock) begin
-        if (nreset) begin
-            ebr_index[1] <= ebr_index[0];
-            coefficient_index[1] <= coefficient_index[0];
-            quantizer_output_buffer[1] <= quantizer_output_buffer[0];
-            case (quantizer_state)
-                `QUANTIZER_STATE_WAIT: begin
-                    quantizer_readbuf <= quantizer_readbuf;
-                    coefficient_index[0] <= 'h0;
-                    dividend_divisor_valid <= 1'h0;
-                    ebr_index[0] <= 'h0;
-                    if (quantizer_readbuf != dcts_frontbuffer) begin
-                        quantizer_state <= `QUANTIZER_STATE_QUANTIZE;
-                    end else begin
-                        quantizer_state <= `QUANTIZER_STATE_WAIT;
-                    end
-                end
-
-                `QUANTIZER_STATE_QUANTIZE: begin
-                    coefficient_index[0] <= coefficient_index[0] + 6'h1;
-                    dividend_divisor_valid <= 1'h1;
-
-                    if (coefficient_index[0] == 'h3f) begin
-                        quantizer_output_buffer[0] <= quantizer_output_buffer[0] + 'h1;
-
-                        if (ebr_index[0] == 3'h4) begin
-                            quantizer_state <= `QUANTIZER_STATE_WAIT;
-                            quantizer_readbuf <= quantizer_readbuf + 'h1;
-                            ebr_index[0] <= 'h0;
-                        end else begin
-                            quantizer_state <= `QUANTIZER_STATE_QUANTIZE;
-                            quantizer_readbuf <= quantizer_readbuf;
-                            ebr_index[0] <= ebr_index[0] + 'h1;
-                        end
-                    end else begin
-                        quantizer_output_buffer[0] <= quantizer_output_buffer[0];
-                        quantizer_state <= `QUANTIZER_STATE_QUANTIZE;
-                        ebr_index[0] <= ebr_index[0];
-                    end
-                end
-            endcase
-        end else begin
-            quantizer_state <= `QUANTIZER_STATE_WAIT;
-            quantizer_readbuf <= 2'h0;
-            quantizer_output_buffer[0] <= 2'h0;
-            quantizer_output_buffer[1] <= 2'h0;
-            coefficient_index[0] <= 'h0;
-            coefficient_index[1] <= 'h0;
-            ebr_index[0] <= 'h0;
-            ebr_index[1] <= 'h0;
-            dividend_divisor_valid <= 'h0;
-        end
-    end
 
     wire [5:0] zigzagged_coefficient_index;
-    zig_zag_to_row_major ziggy(.zig_zag_index(coefficient_index[0]),
+    zig_zag_to_row_major ziggy(.zig_zag_index(coefficient_index),
                                .row_major_index(zigzagged_coefficient_index));
-    //assign zigzagged_coefficient_index = coefficient_index[0];
-
-    always @* begin
-        dct_output_read_addr = { quantizer_readbuf, zigzagged_coefficient_index };
-        dividend = dct_output_read_data[ebr_index[1]];
-    end
+    assign dct_output_read_addr = { quantizer_readbuf, zigzagged_coefficient_index };
+    assign dividend = dct_output_read_data[ebr_index];
 
     // entries in the quantization table shall be stored in zig-zag order.
     // 1 EBR
@@ -241,7 +191,7 @@ module jfpjc(input                      nreset,
                                                                        .waddr(9'h00),
                                                                        .wclk(1'b0),
 
-                                                                       .raddr({ 3'h0, coefficient_index[0] }),
+                                                                       .raddr({ 3'h0, coefficient_index }),
                                                                        .rclk(clock),
                                                                        .dout(divisor));
 
@@ -253,7 +203,7 @@ module jfpjc(input                      nreset,
 
                               .dividend(dividend),
                               .divisor(divisor),
-                              .tag({ quantizer_output_buffer[1], coefficient_index[1] }),
+                              .tag({ quantizer_output_buffer, coefficient_index_delay }),
                               .input_valid(dividend_divisor_valid),
 
                               .quotient(quotient),
