@@ -244,7 +244,6 @@ module jfpjc(input                      nreset,
                                 .busy(huffman_encoder_busy));
 
     reg vsync_prev [0:2];
-    initial begin $dumpvars(1, vsync_prev[0]); $dumpvars(1, vsync_prev[1]); end
     reg [7:0] quotient_tag_next;
     reg huffman_encoder_busy_delay;
     always @(posedge clock) begin
