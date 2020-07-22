@@ -521,7 +521,7 @@ module jpeg_huffman_encode(input clock,
         if (nreset) begin
             do_rollback[1] <= do_rollback[0];
             index[3] <= index[2];
-            valid[3] <= valid[2];
+            valid[3] <= do_rollback[0] ? 1'b0 : valid[2];
 
             if (index[2] == 6'h00) begin
                 output_wren <= valid[2];
@@ -547,7 +547,7 @@ module jpeg_huffman_encode(input clock,
                 end
             end
 
-            if ((index[3] == 6'd63) && (!do_rollback[1])) begin
+            if ((index[3] == 6'd63) && (!do_rollback[1]) && valid[3]) begin
                 busy <= 1'b0;
             end else if (start) begin
                 busy <= 1'b1;
