@@ -41,7 +41,7 @@ module hm01b0_ingester(input                      clock,
             // mind the edge direction: sparkfun code seems to think that this is rising edge, but
             // other sources disagree.
             if ((!hm01b0_pixclk_prev[1] && hm01b0_pixclk_prev[0]) &&
-                (hm01b0_hsync)) begin
+                (hm01b0_hsync && hm01b0_vsync)) begin
                 wren <= 1'b1;
                 output_pixval <= hm01b0_pixdata_prev + 8'h80;
             end else begin

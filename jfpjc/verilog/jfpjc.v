@@ -222,13 +222,16 @@ module jfpjc(input                      nreset,
                             .rclk(clock),
                             .dout(huffman_encoder_src_data_in));
 
+
+    reg [10 : 0] num_mcus_encoded_this_frame;
+    wire huffman_encoder_done_this_frame = (num_mcus_encoded_this_frame >= 1200);
     wire huffman_encoder_output_wren;
     wire [31:0] huffman_encoder_output_data;
     wire [5:0] huffman_encoder_output_length;
     wire       huffman_encoder_busy;
     reg        huffman_encoder_start;
     jpeg_huffman_encode encoder(.clock(clock),
-                                .nreset(nreset),
+                                .nreset(nreset && (!huffman_encoder_done_this_frame)),
                                 .start(huffman_encoder_start),
 
                                 .fetch_addr(huffman_encoder_fetch_addr),
@@ -240,15 +243,27 @@ module jfpjc(input                      nreset,
 
                                 .busy(huffman_encoder_busy));
 
+    reg vsync_prev [0:2];
+    initial begin $dumpvars(1, vsync_prev[0]); $dumpvars(1, vsync_prev[1]); end
     reg [7:0] quotient_tag_next;
     reg huffman_encoder_busy_delay;
     always @(posedge clock) begin
         if (nreset) begin
+            { vsync_prev[2], vsync_prev[1], vsync_prev[0] } <= { vsync_prev[1], vsync_prev[0], hm01b0_vsync };
+
             huffman_encoder_busy_delay <= huffman_encoder_busy;
             if (!huffman_encoder_busy && huffman_encoder_busy_delay) begin
                 huffman_encoder_buffer_sel <= huffman_encoder_buffer_sel + 2'h1;
             end else begin
                 huffman_encoder_buffer_sel <= huffman_encoder_buffer_sel;
+            end
+
+            if (!vsync_prev[2] && vsync_prev[1]) begin
+                num_mcus_encoded_this_frame <= 'h0;
+            end else if (!huffman_encoder_busy && huffman_encoder_busy_delay) begin
+                num_mcus_encoded_this_frame <= num_mcus_encoded_this_frame + 'h1;
+            end else begin
+                num_mcus_encoded_this_frame <= num_mcus_encoded_this_frame;
             end
 
             if (quotient_valid) begin
@@ -261,7 +276,8 @@ module jfpjc(input                      nreset,
             // behave nicely right at reset would be a pain; we'd need to initialize
             // "quotient_tag_next" to be
             if ((huffman_encoder_buffer_sel != (quotient_tag_next[7:6])) &&
-                (!huffman_encoder_busy_delay)) begin
+                (!huffman_encoder_busy_delay) &&
+                !huffman_encoder_done_this_frame) begin
                 huffman_encoder_start <= 1'b1;
             end else begin
                 huffman_encoder_start <= 1'b0;
@@ -271,18 +287,66 @@ module jfpjc(input                      nreset,
             huffman_encoder_buffer_sel <= 2'h0;
             quotient_tag_next <= 8'h0;
             huffman_encoder_start <= 1'b0;
+            num_mcus_encoded_this_frame <= 'h0;
+            { vsync_prev[2], vsync_prev[1], vsync_prev[0] } <= { hm01b0_vsync, hm01b0_vsync, hm01b0_vsync };
         end
     end
 
-    // TODO: need to flush this out.
+    // flush remaining bits in bitpacker out once encoder is finished.
+`define BIT_PACKER_FLUSH_STATE_IDLE 2'b00
+`define BIT_PACKER_FLUSH_STATE_FLUSH 2'b01
+`define BIT_PACKER_FLUSH_STATE_RESET 2'b10
+    reg  [1:0] bit_packer_flush_state;
+    reg        bit_packer_data_in_wren;
+    reg  [5:0] bit_packer_data_in_length;
+    reg [31:0] bit_packer_data_in;
+    reg        bit_packer_force_reset;
+    reg  [1:0] bit_packer_flush_state_next;
+
+    always @* begin
+        if (nreset) begin
+            case (bit_packer_flush_state)
+                `BIT_PACKER_FLUSH_STATE_IDLE: begin
+                    bit_packer_data_in_wren = huffman_encoder_output_wren;
+                    bit_packer_data_in_length = huffman_encoder_output_length;
+                    bit_packer_data_in = huffman_encoder_output_data;
+                    bit_packer_force_reset = 1'b0;
+                    bit_packer_flush_state_next = huffman_encoder_done_this_frame ?
+                                                  `BIT_PACKER_FLUSH_STATE_FLUSH : `BIT_PACKER_FLUSH_STATE_IDLE;
+                end
+
+                `BIT_PACKER_FLUSH_STATE_FLUSH: begin
+                    bit_packer_data_in_wren = 1'b1;
+                    bit_packer_data_in_length = 'd32;
+                    bit_packer_data_in = 32'hffff_ffff;
+                    bit_packer_force_reset = 1'b0;
+                    bit_packer_flush_state_next = `BIT_PACKER_FLUSH_STATE_RESET;
+                end
+
+                `BIT_PACKER_FLUSH_STATE_RESET: begin
+                    bit_packer_data_in_wren = 1'b0;
+                    bit_packer_data_in_length = 'd0;
+                    bit_packer_data_in = 32'hxxxx_xxxx;
+                    bit_packer_force_reset = 1'b1;
+                    bit_packer_flush_state_next = huffman_encoder_done_this_frame ?
+                                                  `BIT_PACKER_FLUSH_STATE_RESET : `BIT_PACKER_FLUSH_STATE_IDLE;
+                end
+            endcase // case (bit_packer_flush_state)
+        end else begin
+            bit_packer_flush_state_next = `BIT_PACKER_FLUSH_STATE_IDLE;
+        end
+    end
+
+    always @(posedge clock) bit_packer_flush_state <= bit_packer_flush_state_next;
+
     wire bit_packer_data_out_valid;
     wire [31:0] bit_packer_data_out;
     bitpacker packer(.clock(clock),
-                     .nreset(nreset),
+                     .nreset(nreset && !bit_packer_force_reset),
 
-                     .data_in_valid(huffman_encoder_output_wren),
-                     .data_in(huffman_encoder_output_data),
-                     .input_length(huffman_encoder_output_length),
+                     .data_in_valid(bit_packer_data_in_wren),
+                     .data_in(bit_packer_data_in),
+                     .input_length(bit_packer_data_in_length),
 
                      .data_out_valid(bit_packer_data_out_valid),
                      .data_out(bit_packer_data_out));
