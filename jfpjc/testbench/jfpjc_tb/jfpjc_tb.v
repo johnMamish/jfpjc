@@ -65,7 +65,7 @@ module jfpjc_tb();
         $dumpfile("jfpjc_tb.vcd");
         $dumpvars(0, jfpjc_tb);
 
-        $readmemh("../pictures/peppers_gray_320x240.hex", hm01b0.hm01b0_image);
+        $readmemh("./testimg.hex", hm01b0.hm01b0_image);
 
         $readmemh("../common_data/jpeg_header_info.hextestcase", fixed_header_info);
         $readmemh("./quantization_table_1s.hextestcase", fixed_header_info, `QUANT_TABLE_OFFSET, `QUANT_TABLE_OFFSET + 64);
@@ -76,6 +76,7 @@ module jfpjc_tb();
         end
         for (i = 0; i < 4; i = i + 1) begin
             $dumpvars(1, compressor.encoder.index[i]);
+            $dumpvars(1, compressor.encoder.valid[i]);
         end
         $dumpvars(1, compressor.encoder.do_rollback[0]); $dumpvars(1, compressor.encoder.do_rollback[1]);
 
@@ -110,6 +111,7 @@ module jfpjc_tb();
         for (i = 0; i < outbuf_idx; i = i + 1) begin
             $fwrite(file_handle, "%c", huffman_out[i]);
         end
+        $fwrite(file_handle, "\377\331");
         $fclose(file_handle);
 
         $finish;

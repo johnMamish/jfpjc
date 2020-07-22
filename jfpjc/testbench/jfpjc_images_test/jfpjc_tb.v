@@ -94,6 +94,7 @@ module jfpjc_tb();
         for (i = 0; i < outbuf_idx; i = i + 1) begin
             $fwrite(file_handle, "%c", huffman_out[i]);
         end
+        $fwrite(file_handle, "\377\331");
         $fclose(file_handle);
 
         $finish;
