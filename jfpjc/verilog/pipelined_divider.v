@@ -1,3 +1,6 @@
+`ifndef _PIPELINED_DIVIDER_H
+`define _PIPELINED_DIVIDER_H
+
 // pipelined_divider.v
 // Divides signed dividend by unsigned divisor. 
 // Parameterized to take inputs of variable size. 
