@@ -20,6 +20,29 @@ module jfpjc_multiframe_tb();
                       .hsync(hm01b0_hsync),
                       .vsync(hm01b0_vsync));
 
+    // interface to obfuscation table ebr
+    wire [8:0]               obfuscation_table_ebr_raddr;
+    wire                     obfuscation_table_ebr_ren;
+    wire                     obfuscation_table_ebr_rclk;
+    wire [7:0]               obfuscation_table_ebr_dout;
+
+    ice40_ebr obfuscation_table(.din(8'h0), .write_en(1'b0), .waddr(9'h0), .wclk(1'b0),
+                              .raddr(obfuscation_table_ebr_raddr),
+                              .rclk(obfuscation_table_ebr_ren & obfuscation_table_ebr_rclk),
+                              .dout(obfuscation_table_ebr_dout));
+    defparam obfuscation_table.addr_width = 9;
+    defparam obfuscation_table.data_width = 8;
+
+    // interface to quantization table ebr
+    wire [5:0]               quantization_table_ebr_raddr;
+    wire                     quantization_table_ebr_ren;
+    wire                     quantization_table_ebr_rclk;
+    wire [7:0]               quantization_table_ebr_dout;
+    ice40_ebr quantization_table(.din(8'h0), .write_en(1'b0), .waddr(9'h0), .wclk(1'b0),
+                              .raddr({ 3'h0, quantization_table_ebr_raddr }),
+                              .rclk(quantization_table_ebr_ren & quantization_table_ebr_rclk),
+                              .dout(quantization_table_ebr_dout));
+
     wire compressor_data_good;
     wire [7:0] compressor_data_out;
     jfpjc compressor(.nreset(nreset),
@@ -29,6 +52,16 @@ module jfpjc_multiframe_tb();
                      .hm01b0_pixdata(hm01b0_pixdata),
                      .hm01b0_hsync(hm01b0_hsync),
                      .hm01b0_vsync(hm01b0_vsync),
+
+                     .obfuscation_table_ebr_raddr(obfuscation_table_ebr_raddr),
+                     .obfuscation_table_ebr_ren(obfuscation_table_ebr_ren),
+                     .obfuscation_table_ebr_rclk(obfuscation_table_ebr_rclk),
+                     .obfuscation_table_ebr_dout(obfuscation_table_ebr_dout),
+
+                     .quantization_table_ebr_raddr(quantization_table_ebr_raddr),
+                     .quantization_table_ebr_ren(quantization_table_ebr_ren),
+                     .quantization_table_ebr_rclk(quantization_table_ebr_rclk),
+                     .quantization_table_ebr_dout(quantization_table_ebr_dout),
 
                      .hsync(compressor_data_good),
                      .data_out(compressor_data_out));
@@ -79,9 +112,10 @@ module jfpjc_multiframe_tb();
         $dumpvars(0, jfpjc_multiframe_tb);
 
         // set up constant data
+        for (i = 0; i < $size(obfuscation_table); i = i + 1) obfuscation_table.mem[i] = 'h0;
         $readmemh("../common_data/jpeg_header_info.hextestcase", fixed_header_info);
         $readmemh("./quantization_table_1s.hextestcase", fixed_header_info, `QUANT_TABLE_OFFSET, `QUANT_TABLE_OFFSET + 63);
-        $readmemh("./quantization_table_1s.hextestcase", compressor.quantization_table_ebr.mem, 0, 63);
+        $readmemh("./quantization_table_1s.hextestcase", quantization_table.mem, 0, 63);
         $readmemh("./testimg0.hex", frames_in_0);
         for (i = 0; i < 320 * 240; i = i + 1) begin
             frames_in[0][i] = frames_in_0[i];

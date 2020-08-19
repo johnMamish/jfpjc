@@ -15,10 +15,24 @@
 module jfpjc(input                      nreset,
              input                      clock,
 
+             // camera interface
              input                      hm01b0_pixclk,
              input [7:0]                hm01b0_pixdata,
              input                      hm01b0_hsync,
              input                      hm01b0_vsync,
+
+             // interface to obfuscation table ebr
+             output [8:0]               obfuscation_table_ebr_raddr,
+             output                     obfuscation_table_ebr_ren,
+             output                     obfuscation_table_ebr_rclk,
+             input  [7:0]               obfuscation_table_ebr_dout,
+
+
+             // interface to quantization table ebr
+             output [5:0]               quantization_table_ebr_raddr,
+             output                     quantization_table_ebr_ren,
+             output                     quantization_table_ebr_rclk,
+             input  [7:0]               quantization_table_ebr_dout,
 
              output                     hsync,
              output reg                 vsync,
@@ -37,6 +51,11 @@ module jfpjc(input                      nreset,
 
     hm01b0_ingester ingester(.nreset(nreset),
                              .clock(clock),
+
+                             .obfuscation_map_fetch_addr(obfuscation_table_ebr_raddr),
+                             .obfuscation_map_fetch_data(obfuscation_table_ebr_dout),
+                             .obfuscation_map_rclken(obfuscation_table_ebr_ren),
+                             .obfuscation_map_rclk(obfuscation_table_ebr_rclk),
 
                              .hm01b0_pixclk(hm01b0_pixclk),
                              .hm01b0_pixdata(hm01b0_pixdata),
@@ -186,14 +205,10 @@ module jfpjc(input                      nreset,
 
     // entries in the quantization table shall be stored in zig-zag order.
     // 1 EBR
-    ice40_ebr #(.addr_width(9), .data_width(8)) quantization_table_ebr(.din(8'h00),
-                                                                       .write_en(1'b0),
-                                                                       .waddr(9'h00),
-                                                                       .wclk(1'b0),
-
-                                                                       .raddr({ 3'h0, coefficient_index }),
-                                                                       .rclk(clock),
-                                                                       .dout(divisor));
+    assign quantization_table_ebr_raddr = coefficient_index;
+    assign quantization_table_ebr_ren = 1'b1;
+    assign quantization_table_ebr_rclk = clock;
+    assign divisor = quantization_table_ebr_dout;
 
     wire signed [15:0] quotient;
     wire         [7:0] quotient_tag;

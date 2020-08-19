@@ -24,14 +24,27 @@ module hm01b0_ingester_tb();
     // ingester
     reg clock;                // 1MHz
 
+    wire [7:0] om_fetch_addr;
+    wire [15:0] om_fetch_data;
+    wire       om_rclken;
+    wire       om_rclk;
+
     wire [2:0] output_ebr_select;
     wire       frontbuffer_select;
     wire [8:0] output_write_addr;
     wire [7:0] output_pixval;
     wire       wren;
 
+    wire [39:0] om_out;
+    wire        om_wren;
+
     hm01b0_ingester hm01b0_ing(.clock(clock),
                                .nreset(nreset),
+
+                               .obfuscation_map_fetch_addr(om_fetch_addr),
+                               .obfuscation_map_fetch_data(om_fetch_data),
+                               .obfuscation_map_rclken(om_rclken),
+                               .obfuscation_map_rclk(om_rclk),
 
                                .hm01b0_pixclk(hm01b0_pixclk),
                                .hm01b0_pixdata(hm01b0_pixdata),
@@ -42,7 +55,14 @@ module hm01b0_ingester_tb();
                                .frontbuffer_select(frontbuffer_select),
                                .output_write_addr(output_write_addr),
                                .output_pixval(output_pixval),
-                               .wren(wren));
+                               .wren(wren),
+
+                               .obfuscation_map_out(om_out),
+                               .obfuscation_map_wren(om_wren));
+
+    ice40_ebr #(.addr_width(8), .data_width(16))
+    obfuscation_map(.din(16'h0), .write_en(1'b0), .waddr(8'h0), .wclk(1'b0),
+                    .raddr(om_fetch_addr), .rclk(om_rclk & om_rclken), .dout(om_fetch_data));
 
     genvar gi;
     integer gij;
@@ -90,6 +110,7 @@ module hm01b0_ingester_tb();
         $dumpvars(0, hm01b0_ingester_tb);
 
         // initialize memories
+        $readmemb("./obfuscation_map.bin", obfuscation_mep.mem);
         $readmemh("./pictures/checkerboard_highfreq.hex", hm01b0.hm01b0_image);
 
         //
