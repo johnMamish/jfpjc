@@ -385,4 +385,39 @@ module jfpjc(input                      nreset,
                             .data_in(wab_data_out),
                             .data_out_valid(hsync),
                             .data_out(data_out));
+
+    // VSYNC has to stay high until all data for the current frame has been evacuated from the
+    // pipeline. Until we get to the end of the huffman encoder, it's easy to keep track of whether
+    // this is still a halfway-processed frame working its way through the pipeline. After the
+    // huffman encoder, we still have bitpacking and ff 00 bytestuffing to do; it would take
+    // some revisions to the hardware to figure out whether those parts of the pipeline are fully
+    // evacuated or not.
+    //
+    // This is a gross hack: we count the number of clock cycles after the huffman encoder has
+    // finished the last MCU in the frame. Because of the buffer sizes in the post-huffman encoder
+    // output chain, here's an upper bound for how long data can live in the pipeline after
+    // that before it's all evacuated.
+    localparam [15:0] max_output_pipeline_lifetime = 16'd256;
+    reg [15:0] huffman_finished_counter;
+    always @(posedge clock) begin
+        if (nreset) begin
+            if (huffman_encoder_done_this_frame) begin
+                huffman_finished_counter <= (huffman_finished_counter == max_output_pipeline_lifetime) ?
+                                            huffman_finished_counter : (huffman_finished_counter + 16'h0001);
+            end else begin
+                huffman_finished_counter <= 16'h0000;
+            end
+
+            if (bit_packer_data_out_valid) begin
+                vsync <= 1'b1;
+            end else if (huffman_finished_counter >= max_output_pipeline_lifetime) begin
+                vsync <= 1'b0;
+            end else begin
+                vsync <= vsync;
+            end
+        end else begin
+            huffman_finished_counter <= 8'h00;
+            vsync <= 1'b0;
+        end
+    end
 endmodule
