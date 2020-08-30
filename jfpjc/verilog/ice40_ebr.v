@@ -11,6 +11,7 @@
 module ice40_ebr (din, write_en, waddr, wclk, raddr, rclk, dout);//512x8
     parameter addr_width = 9;
     parameter data_width = 8;
+    parameter init_file = "";
     input [addr_width-1:0] waddr, raddr;
     input [data_width-1:0] din;
     input write_en, wclk, rclk;
@@ -26,6 +27,17 @@ module ice40_ebr (din, write_en, waddr, wclk, raddr, rclk, dout);//512x8
     always @(posedge rclk) // Read memory.
     begin
         dout <= mem[raddr]; // Using read address bus.
+    end
+
+    initial begin: init
+        integer i;
+        if (init_file != "") begin
+            $readmemh(init_file, mem, 0, (1 << addr_width));
+        end else begin
+            for (i = 0; i < (1 << addr_width); i = i + 1) begin
+                mem[i] = {(1 << addr_width){1'b0}};
+            end
+        end
     end
 endmodule
 
