@@ -23,6 +23,7 @@ module jfpjc(input                      nreset,
              output                     hsync,
              output reg                 vsync,
              output     [7:0]           data_out);
+    parameter quant_table_file = "";
 
 
     ////////////////////////////////////////////////////////////////
@@ -194,6 +195,7 @@ module jfpjc(input                      nreset,
                                                                        .raddr({ 3'h0, coefficient_index }),
                                                                        .rclk(clock),
                                                                        .dout(divisor));
+    defparam quantization_table_ebr.init_file = quant_table_file;
 
     wire signed [15:0] quotient;
     wire         [7:0] quotient_tag;
