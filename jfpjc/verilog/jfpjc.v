@@ -338,6 +338,7 @@ module jfpjc(input                      nreset,
                     bit_packer_data_in_length = 'hx;
                     bit_packer_data_in = 32'hxxxx_xxxx;
                     bit_packer_force_reset = 1'b0;
+                    bit_packer_flush_state_next = 'hx;
                 end
             endcase // case (bit_packer_flush_state)
         end else begin
