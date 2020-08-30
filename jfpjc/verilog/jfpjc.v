@@ -332,8 +332,19 @@ module jfpjc(input                      nreset,
                     bit_packer_flush_state_next = huffman_encoder_done_this_frame ?
                                                   `BIT_PACKER_FLUSH_STATE_RESET : `BIT_PACKER_FLUSH_STATE_IDLE;
                 end
+
+                default: begin
+                    bit_packer_data_in_wren = 1'bx;
+                    bit_packer_data_in_length = 'hx;
+                    bit_packer_data_in = 32'hxxxx_xxxx;
+                    bit_packer_force_reset = 1'b0;
+                end
             endcase // case (bit_packer_flush_state)
         end else begin
+            bit_packer_data_in_wren = 1'bx;
+            bit_packer_data_in_length = 'hx;
+            bit_packer_data_in = 32'hxxxx_xxxx;
+            bit_packer_force_reset = 1'b0;
             bit_packer_flush_state_next = `BIT_PACKER_FLUSH_STATE_IDLE;
         end
     end
