@@ -33,7 +33,6 @@ module ice40_ebr (din, write_en, waddr, wclk, raddr, rclk, dout);//512x8
         integer i;
         if (init_file != "") begin
             $readmemh(init_file, mem, 0, (1 << addr_width) - 1);
-            $display("readmem, init file = %s", init_file);
         end else begin
             for (i = 0; i < (1 << addr_width); i = i + 1) begin
                 mem[i] = {(1 << addr_width){1'b0}};
