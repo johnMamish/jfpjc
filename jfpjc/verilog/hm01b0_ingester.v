@@ -23,6 +23,7 @@ module hm01b0_ingester(input                      clock,
                        output reg [($clog2(ebr_size) - 1):0] output_write_addr,
                        output reg [7:0]           output_pixval,
                        output reg [0:0]           wren);
+    parameter x_front_padding = 0, x_back_padding = 0, y_front_padding = 0, y_back_padding = 0;
     localparam width_pix = 320, height_pix = 240, num_ebr = 5, ebr_size = 512;
     reg [7:0] hm01b0_pixdata_prev;
     reg hm01b0_pixclk_prev [0:1];

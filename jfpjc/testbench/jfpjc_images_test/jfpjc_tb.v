@@ -19,16 +19,25 @@ module jfpjc_tb();
                       .pixdata(hm01b0_pixdata),
                       .hsync(hm01b0_hsync),
                       .vsync(hm01b0_vsync));
+    defparam hm01b0.width = 324;
+    defparam hm01b0.height = 244;
+
+    wire roi_vsync, roi_hsync, roi_pixclk;
+    vsync_hsync_roi trim(.pixclk_in(hm01b0_pixclk), .hsync_in(hm01b0_hsync), .vsync_in(hm01b0_vsync),
+                         .pixclk_out(roi_pixclk), .hsync_out(roi_hsync), .vsync_out(roi_vsync));
+    defparam trim.roi_width = 320; defparam trim.roi_height = 240;
+    defparam trim.left_padding = 2; defparam trim.right_padding = 2;
+    defparam trim.top_padding = 2; defparam trim.bottom_padding = 2;
 
     wire compressor_data_good;
     wire [7:0] compressor_data_out;
     jfpjc compressor(.nreset(nreset),
                      .clock(clock),
 
-                     .hm01b0_pixclk(hm01b0_pixclk),
+                     .hm01b0_pixclk(roi_pixclk),
                      .hm01b0_pixdata(hm01b0_pixdata),
-                     .hm01b0_hsync(hm01b0_hsync),
-                     .hm01b0_vsync(hm01b0_vsync),
+                     .hm01b0_hsync(roi_hsync),
+                     .hm01b0_vsync(roi_vsync),
 
                      .hsync(compressor_data_good),
                      .data_out(compressor_data_out));
@@ -62,6 +71,9 @@ module jfpjc_tb();
     integer file_handle;
     reg [7:0] fixed_header_info [0:327];
     initial begin
+        //$dumpfile("jfpjc_tb.vcd");
+        //$dumpvars(0, jfpjc_tb);
+
         $readmemh("./testimg.hex", hm01b0.hm01b0_image);
 
         $readmemh("../common_data/jpeg_header_info.hextestcase", fixed_header_info);

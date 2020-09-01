@@ -14,11 +14,11 @@ except (FileNotFoundError, ValueError, IndexError) as e:
     quit(1)
 
 # if the image is too small, this will add borders around the edges.
-new_im = Image.new('L', (320, 240), color=(0))
-new_im.paste(img);
-#new_im.show()
+# new_im = Image.new('L', (320, 240), color=(0))
+# new_im.paste(img);
+#img.show()
 
-pix = np.array(new_im)
+pix = np.array(img)
 
 i = 0
 for row in pix:

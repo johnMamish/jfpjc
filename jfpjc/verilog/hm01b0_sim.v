@@ -13,9 +13,6 @@
 
 `timescale 1ns/100ps
 
-`define WIDTH (320)
-`define HEIGHT (240)
-
 `define HPADDING (20)
 `define VPADDING (30)
 
@@ -27,22 +24,29 @@ module hm01b0_sim(input      mclk,
 
                   output reg hsync,
                   output reg vsync);
+    parameter width = 320;
+    parameter height = 240;
+    parameter left_padding = 1, right_padding = 1;
+    parameter top_padding = 1, bottom_padding = 30;
+    localparam xmax = width + left_padding + right_padding - 1;
+    localparam ymax = height + top_padding + bottom_padding - 1;
 
-    reg [7:0] hm01b0_image [0:((320 * 240) - 1)];
+
+    reg [7:0] hm01b0_image [0:((width * height) - 1)];
 
     reg [15:0] ptrx;
     reg [15:0] ptry;
 
     always @ (negedge mclk) begin
         if (nreset) begin
-            if (ptrx == ((`WIDTH + `HPADDING) - 1)) begin
+            if (ptrx == xmax) begin
                 ptrx <= 16'h0;
             end else begin
                 ptrx <= ptrx + 16'h1;
             end
 
-            if (ptrx == ((`WIDTH + `HPADDING) - 1)) begin
-                if (ptry == ((`HEIGHT + `VPADDING) - 1)) begin
+            if (ptrx == xmax) begin
+                if (ptry == ymax) begin
                     ptry <= 16'h0;
                 end else begin
                     ptry <= ptry + 1;
@@ -57,21 +61,22 @@ module hm01b0_sim(input      mclk,
         end
     end
 
+    always @* begin
+        // Unclear if this is the right vsync/hsync behavior. Need to check with a scope.
+        vsync = ((ptry >= top_padding) && (ptry < (top_padding + height))) ? (1'b1) : (1'b0);
+        hsync = (vsync && (ptrx >= left_padding) && (ptrx < (left_padding + width))) ? (1'b1) : (1'b0);
+    end
+
+
     // for some reason, putting hm01b0_image (an array of 76800 items) inside an always @* block
     // really upsets iverilog, so we need to use these assign statements on pixdata.
     wire [7:0] pixdata_i;
-    assign pixdata_i = ((ptrx < `WIDTH) && (ptry < `HEIGHT)) ?
-                       hm01b0_image[(ptry * `WIDTH) + ptrx] :
+    assign pixdata_i = (hsync && vsync) ?
+                       hm01b0_image[((ptry - top_padding) * width) + (ptrx - left_padding)] :
                        8'hxx;
     always @* begin
         // in case you want to add a delay
         pixdata = pixdata_i;
-    end
-
-    always @* begin
-        // Unclear if this is the right vsync/hsync behavior. Need to check with a scope.
-        hsync = (ptrx < `WIDTH) ? (1'b1) : (1'b0);
-        vsync = (ptry < `HEIGHT) ? (1'b1) : (1'b0);
     end
 
     always @* begin
