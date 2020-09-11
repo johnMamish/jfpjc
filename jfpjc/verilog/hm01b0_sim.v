@@ -13,9 +13,6 @@
 
 `timescale 1ns/100ps
 
-`define HPADDING (20)
-`define VPADDING (30)
-
 module hm01b0_sim(input      mclk,
                   input      nreset,
 

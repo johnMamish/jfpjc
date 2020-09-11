@@ -126,6 +126,7 @@ module jfpjc(input                      nreset,
                                 .finished(dcts_finished[dcts_i]));
 
             // round and convert 3q12 result to 7q8
+            // NB for optimization: only need 3q8 of precision, not 7q8.
             wire signed [15:0] dct_result_out_7q8;
             assign dct_result_out_7q8 = (dct_result_out + 16'sh0008) >>> 4;
 
@@ -197,6 +198,29 @@ module jfpjc(input                      nreset,
                                                                        .dout(divisor));
     defparam quantization_table_ebr.init_file = quant_table_file;
 
+//`define SHIFT_INSTEAD_OF_DIVIDE
+`ifdef SHIFT_INSTEAD_OF_DIVIDE
+    reg signed [15:0] quotient;
+    reg         [7:0] quotient_tag;
+    reg               quotient_valid;
+    wire signed [15:0]   round_towards_zero_offs;
+    assign round_towards_zero_offs = (dividend < 0) ? 16'sh0001 : 16'sh0000;
+    always @(posedge clock) begin
+        if (nreset) begin
+            case (coefficient_index_delay[5:4])
+                2'b00:        quotient <= (dividend >>> 3) + round_towards_zero_offs;
+                2'b01:        quotient <= (dividend >>> 5) + round_towards_zero_offs;
+                2'b10, 2'b11: quotient <= (dividend >>> 6) + round_towards_zero_offs;
+            endcase
+            quotient_tag <= { quantizer_output_buffer, coefficient_index_delay };
+            quotient_valid <= dividend_divisor_valid;
+        end else begin
+            quotient <= 'hxx;
+            quotient_tag <= 'hxx;
+            quotient_valid <= 1'b0;
+        end
+    end
+`else
     wire signed [15:0] quotient;
     wire         [7:0] quotient_tag;
     wire               quotient_valid;
@@ -211,6 +235,9 @@ module jfpjc(input                      nreset,
                               .quotient(quotient),
                               .tag_out(quotient_tag),
                               .output_valid(quotient_valid));
+    defparam divider.dividend_width = 16;
+    defparam divider.divisor_width  = 8;
+`endif
 
     reg [1:0] huffman_encoder_buffer_sel;
     wire [5:0] huffman_encoder_fetch_addr;
