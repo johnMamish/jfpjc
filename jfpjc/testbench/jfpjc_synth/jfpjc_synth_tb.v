@@ -7,7 +7,7 @@
 
 `define QUANT_TABLE_OFFSET (25)
 
-module jfpjc_tb();
+module jfpjc_synth_tb();
     reg clock;
     reg nreset;
 
@@ -26,6 +26,7 @@ module jfpjc_tb();
                       .vsync(hm01b0_vsync));
 
     wire compressor_data_good;
+    wire compressor_vsync;
     wire [7:0] compressor_data_out;
     jfpjc compressor(.nreset(nreset),
                      .clock(clock),
@@ -36,9 +37,12 @@ module jfpjc_tb();
                      .hm01b0_vsync(hm01b0_vsync),
 
                      .hsync(compressor_data_good),
+                     .vsync(compressor_vsync),
                      .data_out(compressor_data_out));
+    defparam compressor.quant_table_file = "./quantization_table.hextestcase";
 
     wire compressor_synth_data_good;
+    wire compressor_synth_vsync;
     wire [7:0] compressor_synth_data_out;
     jfpjc_synth compressor_synth(.nreset(nreset),
                                  .clock(clock),
@@ -49,8 +53,9 @@ module jfpjc_tb();
                                  .hm01b0_vsync(hm01b0_vsync),
 
                                  .hsync(compressor_synth_data_good),
+                                 .vsync(compressor_synth_vsync),
                                  .data_out(compressor_synth_data_out));
-
+    //defparam compressor.quant_table_file = "./quantization_table.hextestcase"
 
     // generate hm01b0 clock
     always begin
@@ -71,40 +76,28 @@ module jfpjc_tb();
         if (compressor_data_good) begin
             huffman_out[outbuf_idx] = compressor_data_out;
             outbuf_idx = outbuf_idx + 1;
-
-            if (compressor_data_out == 8'hff) begin
-                huffman_out[outbuf_idx] = 8'h00;
-                outbuf_idx = outbuf_idx + 1;
-            end
         end
 
         if (compressor_synth_data_good) begin
             synth_huffman_out[synth_outbuf_idx] = compressor_synth_data_out;
             synth_outbuf_idx = synth_outbuf_idx + 1;
-
-            // bytestuff
-            if (compressor_synth_data_out == 8'hff) begin
-                synth_huffman_out[synth_outbuf_idx] = 8'h00;
-                synth_outbuf_idx = synth_outbuf_idx + 1;
-            end
         end
-
     end
 
     integer i, j, k;
     integer file_handle;
     reg [7:0] fixed_header_info [0:327];
     initial begin
-        $dumpfile("jfpjc_tb.vcd");
-        $dumpvars(0, jfpjc_tb);
+        $dumpfile("jfpjc_synth_tb.vcd");
+        $dumpvars(0, jfpjc_synth_tb);
 
         //$readmemh("../pictures/checkerboard_highfreq_80x80.hex", hm01b0.hm01b0_image);
         $readmemh("../pictures/boat_gray.hex", hm01b0.hm01b0_image);
 
         $readmemh("../common_data/jpeg_header_info.hextestcase", fixed_header_info);
         $readmemh("quantization_table.hextestcase", fixed_header_info, `QUANT_TABLE_OFFSET, `QUANT_TABLE_OFFSET + 64);
-        $readmemh("quantization_table.hextestcase", compressor.quantization_table_ebr.mem);
-        //$readmemh("quantization_table.hextestcase", compressor_synth.quantization_table_ebr.mem);
+        //$readmemh("quantization_table.hextestcase", compressor.quantization_table_ebr.mem);
+        $readmemh("quantization_table.hextestcase", compressor_synth.compressor.quantization_table_ebr.mem);
 
         //
         clock = 1'b0;
