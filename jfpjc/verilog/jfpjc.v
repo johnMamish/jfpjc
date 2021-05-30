@@ -22,7 +22,7 @@ module jfpjc(input                      nreset,
              input                      hm01b0_vsync,
 
              // interface to obfuscation table ebr
-             output [8:0]               obfuscation_table_ebr_raddr,
+             output reg [8:0]           obfuscation_table_ebr_raddr,
              output                     obfuscation_table_ebr_ren,
              output                     obfuscation_table_ebr_rclk,
              input  [7:0]               obfuscation_table_ebr_dout,
@@ -139,10 +139,25 @@ module jfpjc(input                      nreset,
 
                                 .finished(dcts_finished[dcts_i]));
 
+            wire obfuscate = obfuscation_table_ebr_dout[dcts_i];
+
+            // Determines how many coefficients are thrown away in obfuscated pixels.
+            // The lower this number is, the more HF coefficients are thrown away; if it's 0, all
+            // coefficents are thrown away and the obfuscated pixel is a flat 0x7f gray.
+            // TODO: because of the position of the zigzagger, this only works for throwing away
+            // coefficient 0.
+            localparam dct_blur_reject_limit = 1;
+
             // round and convert 3q12 result to 7q8
             // NB for optimization: only need 3q8 of precision, not 7q8.
-            wire signed [15:0] dct_result_out_7q8;
-            assign dct_result_out_7q8 = (dct_result_out + 16'sh0008) >>> 4;
+            reg signed [15:0] dct_result_out_7q8;
+            always @* begin
+                if (obfuscate && (dct_result_write_addr >= dct_blur_reject_limit)) begin
+                    dct_result_out_7q8 = 16'sh0000;
+                end else begin
+                    dct_result_out_7q8 = (dct_result_out + 16'sh0008) >>> 4;
+                end
+            end
 
             wire [7:0] dct_buffered_write_addr;
             assign dct_buffered_write_addr = {dcts_frontbuffer, dct_result_write_addr};
@@ -171,6 +186,28 @@ module jfpjc(input                      nreset,
                                   .mcu_groups_processed(mcu_groups_processed),
                                   .dcts_frontbuffer(dcts_frontbuffer),
                                   .dct_nreset(dct_nreset));
+
+    ////////////////////////////////////////////////////////////////
+    // obfuscation fetch
+    // Every time the DCT engines are reset, we fetch the next obfuscation byte.
+    assign obfuscation_table_ebr_ren = 1'b1;
+    assign obfuscation_table_ebr_rclk = clock;
+
+    reg dct_nreset_prev;
+    always @(posedge clock) begin
+        if (nreset) begin
+            if (!dct_nreset_prev && dct_nreset) begin
+                obfuscation_table_ebr_raddr <= (obfuscation_table_ebr_raddr == 240) ?
+                                               'h00 : obfuscation_table_ebr_raddr + 1;
+            end else begin
+                obfuscation_table_ebr_raddr <= obfuscation_table_ebr_raddr;
+            end
+            dct_nreset_prev <= dct_nreset;
+        end else begin
+            obfuscation_table_ebr_raddr <= 'd240;
+            dct_nreset_prev <= 1'b1;
+        end
+    end
 
     ////////////////////////////////////////////////////////////////
     // quantizer
