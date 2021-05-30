@@ -37,6 +37,7 @@ module jfpjc(input                      nreset,
              output                     hsync,
              output reg                 vsync,
              output     [7:0]           data_out);
+    parameter quant_table_file = "";
 
 
     ////////////////////////////////////////////////////////////////
@@ -51,11 +52,6 @@ module jfpjc(input                      nreset,
 
     hm01b0_ingester ingester(.nreset(nreset),
                              .clock(clock),
-
-                             .obfuscation_map_fetch_addr(obfuscation_table_ebr_raddr),
-                             .obfuscation_map_fetch_data(obfuscation_table_ebr_dout),
-                             .obfuscation_map_rclken(obfuscation_table_ebr_ren),
-                             .obfuscation_map_rclk(obfuscation_table_ebr_rclk),
 
                              .hm01b0_pixclk(hm01b0_pixclk),
                              .hm01b0_pixdata(hm01b0_pixdata),
@@ -144,6 +140,7 @@ module jfpjc(input                      nreset,
                                 .finished(dcts_finished[dcts_i]));
 
             // round and convert 3q12 result to 7q8
+            // NB for optimization: only need 3q8 of precision, not 7q8.
             wire signed [15:0] dct_result_out_7q8;
             assign dct_result_out_7q8 = (dct_result_out + 16'sh0008) >>> 4;
 
@@ -205,11 +202,39 @@ module jfpjc(input                      nreset,
 
     // entries in the quantization table shall be stored in zig-zag order.
     // 1 EBR
-    assign quantization_table_ebr_raddr = coefficient_index;
-    assign quantization_table_ebr_ren = 1'b1;
-    assign quantization_table_ebr_rclk = clock;
-    assign divisor = quantization_table_ebr_dout;
+    ice40_ebr #(.addr_width(9), .data_width(8)) quantization_table_ebr(.din(8'h00),
+                                                                       .write_en(1'b0),
+                                                                       .waddr(9'h00),
+                                                                       .wclk(1'b0),
 
+                                                                       .raddr({ 3'h0, coefficient_index }),
+                                                                       .rclk(clock),
+                                                                       .dout(divisor));
+    defparam quantization_table_ebr.init_file = quant_table_file;
+
+//`define SHIFT_INSTEAD_OF_DIVIDE
+`ifdef SHIFT_INSTEAD_OF_DIVIDE
+    reg signed [15:0] quotient;
+    reg         [7:0] quotient_tag;
+    reg               quotient_valid;
+    wire signed [15:0]   round_towards_zero_offs;
+    assign round_towards_zero_offs = (dividend < 0) ? 16'sh0001 : 16'sh0000;
+    always @(posedge clock) begin
+        if (nreset) begin
+            case (coefficient_index_delay[5:4])
+                2'b00:        quotient <= (dividend >>> 3) + round_towards_zero_offs;
+                2'b01:        quotient <= (dividend >>> 5) + round_towards_zero_offs;
+                2'b10, 2'b11: quotient <= (dividend >>> 6) + round_towards_zero_offs;
+            endcase
+            quotient_tag <= { quantizer_output_buffer, coefficient_index_delay };
+            quotient_valid <= dividend_divisor_valid;
+        end else begin
+            quotient <= 'hxx;
+            quotient_tag <= 'hxx;
+            quotient_valid <= 1'b0;
+        end
+    end
+`else
     wire signed [15:0] quotient;
     wire         [7:0] quotient_tag;
     wire               quotient_valid;
@@ -224,6 +249,9 @@ module jfpjc(input                      nreset,
                               .quotient(quotient),
                               .tag_out(quotient_tag),
                               .output_valid(quotient_valid));
+    defparam divider.dividend_width = 16;
+    defparam divider.divisor_width  = 8;
+`endif
 
     reg [1:0] huffman_encoder_buffer_sel;
     wire [5:0] huffman_encoder_fetch_addr;
@@ -345,8 +373,20 @@ module jfpjc(input                      nreset,
                     bit_packer_flush_state_next = huffman_encoder_done_this_frame ?
                                                   `BIT_PACKER_FLUSH_STATE_RESET : `BIT_PACKER_FLUSH_STATE_IDLE;
                 end
+
+                default: begin
+                    bit_packer_data_in_wren = 1'bx;
+                    bit_packer_data_in_length = 'hx;
+                    bit_packer_data_in = 32'hxxxx_xxxx;
+                    bit_packer_force_reset = 1'b0;
+                    bit_packer_flush_state_next = 'hx;
+                end
             endcase // case (bit_packer_flush_state)
         end else begin
+            bit_packer_data_in_wren = 1'bx;
+            bit_packer_data_in_length = 'hx;
+            bit_packer_data_in = 32'hxxxx_xxxx;
+            bit_packer_force_reset = 1'b0;
             bit_packer_flush_state_next = `BIT_PACKER_FLUSH_STATE_IDLE;
         end
     end
@@ -387,4 +427,39 @@ module jfpjc(input                      nreset,
                             .data_in(wab_data_out),
                             .data_out_valid(hsync),
                             .data_out(data_out));
+
+    // VSYNC has to stay high until all data for the current frame has been evacuated from the
+    // pipeline. Until we get to the end of the huffman encoder, it's easy to keep track of whether
+    // this is still a halfway-processed frame working its way through the pipeline. After the
+    // huffman encoder, we still have bitpacking and ff 00 bytestuffing to do; it would take
+    // some revisions to the hardware to figure out whether those parts of the pipeline are fully
+    // evacuated or not.
+    //
+    // This is a gross hack: we count the number of clock cycles after the huffman encoder has
+    // finished the last MCU in the frame. Because of the buffer sizes in the post-huffman encoder
+    // output chain, here's an upper bound for how long data can live in the pipeline after
+    // that before it's all evacuated.
+    localparam [15:0] max_output_pipeline_lifetime = 16'd256;
+    reg [15:0] huffman_finished_counter;
+    always @(posedge clock) begin
+        if (nreset) begin
+            if (huffman_encoder_done_this_frame) begin
+                huffman_finished_counter <= (huffman_finished_counter == max_output_pipeline_lifetime) ?
+                                            huffman_finished_counter : (huffman_finished_counter + 16'h0001);
+            end else begin
+                huffman_finished_counter <= 16'h0000;
+            end
+
+            if (bit_packer_data_out_valid) begin
+                vsync <= 1'b1;
+            end else if (huffman_finished_counter >= max_output_pipeline_lifetime) begin
+                vsync <= 1'b0;
+            end else begin
+                vsync <= vsync;
+            end
+        end else begin
+            huffman_finished_counter <= 8'h00;
+            vsync <= 1'b0;
+        end
+    end
 endmodule

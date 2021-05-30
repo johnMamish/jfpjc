@@ -38,6 +38,8 @@ for i in range(1, 64):
 
 # you can copy and paste this inside a python interpreter in case you need that.
 def ziggy():
+    zig_x = 1
+    zig_y = 0
     retval = [0]
     for i in range(1, 64):
         zigidx = (zig_x + (8 * zig_y));

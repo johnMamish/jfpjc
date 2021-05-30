@@ -1,20 +1,25 @@
-read_verilog ../../verilog/address_zigzagger.v
-read_verilog ../../verilog/bitpacker.v
-read_verilog ../../verilog/bytestuffer.v
-read_verilog ../../verilog/coefficient_encoder.v
-read_verilog ../../verilog/fixed_point_consts.v
-read_verilog ../../verilog/hm01b0_ingester.v
-read_verilog ../../verilog/ice40_ebr.v
-read_verilog ../../verilog/jfpjc.v
-read_verilog ../../verilog/jpeg_huffman_encode.v
-read_verilog ../../verilog/loeffler_dct_88.v
-read_verilog ../../verilog/loeffler_dct_8.v
-read_verilog ../../verilog/pipelined_multiplier.v
-read_verilog ../../verilog/
-read_verilog ../../verilog/width_adapter_buffer.v
-read_verilog ../../verilog/pipelined_divider.v
+read_verilog -defer ../../verilog/bitpacker.v
+read_verilog -defer ../../verilog/hm01b0_ingester.v
+read_verilog -defer ../../verilog/loeffler_dct_88.v
+read_verilog -defer ../../verilog/loeffler_dct_8.v
+read_verilog -defer ../../verilog/pipelined_multiplier.v
+read_verilog -defer ../../verilog/coefficient_encoder.v
+read_verilog -defer ../../verilog/jpeg_huffman_encode.v
+read_verilog -defer ../../verilog/hm01b0_sim.v
+read_verilog -defer ../../verilog/ice40_ebr.v
+read_verilog -defer ../../verilog/pipelined_divider.v
+read_verilog -defer ../../verilog/address_zigzagger.v
+read_verilog -defer ../../verilog/width_adapter_buffer.v
+read_verilog -defer ../../verilog/bytestuffer.v
+read_verilog -defer ../../verilog/dct_reset_manager.v
+read_verilog -defer ../../verilog/quantizer_manager_fsm.v
+read_verilog -defer ../../verilog/jfpjc.v
 
-synth_ice40 -dsp -top jfpjc
+read_verilog -defer ./jfpjc_top.v
+
+chparam -set quant_table_file "quantization_table.hextestcase" jfpjc_top
+
+synth_ice40 -dsp -top jfpjc_top
 
 rename -top jfpjc_synth
 

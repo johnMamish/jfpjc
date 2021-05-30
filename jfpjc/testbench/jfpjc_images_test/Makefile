@@ -21,6 +21,7 @@ VERILOG_FILES+= $(VERILOG)/width_adapter_buffer.v
 VERILOG_FILES+= $(VERILOG)/bytestuffer.v
 VERILOG_FILES+= $(VERILOG)/dct_reset_manager.v
 VERILOG_FILES+= $(VERILOG)/quantizer_manager_fsm.v
+VERILOG_FILES+= $(VERILOG)/padding_trimmer.v
 
 # -Wno-sensitivity-entire-array prevents us from generating warnings when we dereference a large
 # array inside of an always @* block.

@@ -13,24 +13,6 @@
 module hm01b0_ingester(input                      clock,
                        input                      nreset,
 
-                       // obfusction map
-                       // The obfuscation map has one bit per MCU. If the obfuscation bit
-                       // corresponding to a given MCU is '1', that MCU shall be obfuscated.
-                       // The obfuscation bit corresponding to MCU x in row y is at bit number
-                       // x % 5 of byte number (x / 5) + (y * 8). Lower bits correspond to MCUs
-                       // that are further left.
-                       //
-                       // |----- 40 bits spread over 8 bytes -----|
-                       // |                                       |
-                       // xxxbbbbb xxxbbbbb xxxbbbbb ..... xxxbbbbb   <---- row 0
-                       // xxxbbbbb xxxbbbbb xxxbbbbb ..... xxxbbbbb   <---- row 1
-                       // ...         ...   ...      .....  ...
-                       // xxxbbbbb xxxbbbbb xxxbbbbb ..... xxxbbbbb   <---- row 29
-                       output reg [8:0]           obfuscation_map_fetch_addr,
-                       input [7:0]                obfuscation_map_fetch_data,
-                       output reg                 obfuscation_map_rclken,
-                       output reg                 obfuscation_map_rclk,
-
                        // hm01b0 interface
                        input                      hm01b0_pixclk,
                        input [7:0]                hm01b0_pixdata,
@@ -45,12 +27,9 @@ module hm01b0_ingester(input                      clock,
                        output reg [($clog2(num_ebr) - 1):0] output_block_select,
                        output reg [($clog2(ebr_size) - 1):0] output_write_addr,
                        output reg [7:0]           output_pixval,
-                       output reg [0:0]           wren,
 
-                       // obfuscation map output interface
-                       output reg [39:0]          obfuscation_map_out,
-                       output reg [0:0]           obfuscation_map_wren);
-
+                       output reg [0:0]           wren);
+    parameter x_front_padding = 0, x_back_padding = 0, y_front_padding = 0, y_back_padding = 0;
     localparam width_pix = 320, height_pix = 240, num_ebr = 5, ebr_size = 512;
     localparam width_mcu = (width_pix / 8), height_mcu = (height_pix / 8);
     reg [7:0] hm01b0_pixdata_prev;
@@ -171,79 +150,6 @@ module hm01b0_ingester(input                      clock,
         output_write_addr = {mcunum_div_num_ebr, py, px};
 
         new_mcu_row = ((px == 'h7) && (mcux == ((width_pix / 8) - 1)) && (py == 'h7));
-    end
-
-    // obfuscation map loader
-    // TODO: need to keep track of y-position within image / obfuscation map
-
-    // On cycle after nreset is released, we need to start loading first row, so we need to keep
-    // track of nreset_prev.
-    reg [39:0] obfuscation_map_accum, obfuscation_map_accum_next;
-    reg [39:0] obfuscation_map_out_next;
-    reg nreset_prev;
-
-    always @* begin obfuscation_map_rclk = clock; end
-    reg obfuscation_map_read_state, obfuscation_map_read_state_next;
-    reg [2:0] obfuscation_map_read_ptr, obfuscation_map_read_ptr_next;
-`define OBFU_MAP_READ_STATE_IDLE 1'b0
-`define OBFU_MAP_READ_STATE_ACTIVE 1'b1
-
-    always @* begin
-        case (obfuscation_map_read_state)
-            `OBFU_MAP_READ_STATE_IDLE: begin
-                obfuscation_map_read_ptr_next = 3'h0;
-                if (new_mcu_row || (nreset && !nreset_prev)) begin
-                    obfuscation_map_out_next = obfuscation_map_accum;
-                    obfuscation_map_accum_next = 40'h00_0000_0000;
-                    obfuscation_map_read_state_next = `OBFU_MAP_READ_STATE_ACTIVE;
-                    obfuscation_map_rclken = 1'b1;
-                end else begin
-                    obfuscation_map_out_next = obfuscation_map_out;
-                    obfuscation_map_accum_next = obfuscation_map_accum;
-                    obfuscation_map_read_state_next = `OBFU_MAP_READ_STATE_IDLE;
-                    obfuscation_map_rclken = 1'b0;;
-                end
-            end
-
-            `OBFU_MAP_READ_STATE_ACTIVE: begin
-                obfuscation_map_out_next = obfuscation_map_out;
-                obfuscation_map_rclken = 1'b1;
-                if (obfuscation_map_read_ptr == 3'h5) begin
-                    obfuscation_map_read_state_next = `OBFU_MAP_READ_STATE_IDLE;
-                    obfuscation_map_read_ptr_next = 3'h0;
-                end else begin
-                    obfuscation_map_read_state_next = `OBFU_MAP_READ_STATE_ACTIVE;
-                    obfuscation_map_read_ptr_next = obfuscation_map_read_ptr + 3'h1;
-                end
-
-                obfuscation_map_accum_next = obfuscation_map_accum;
-                obfuscation_map_accum_next[(obfuscation_map_read_ptr * 5) +: 5] =
-                    obfuscation_map_fetch_data[4:0];
-            end
-
-            default: begin
-                obfuscation_map_rclken = 1'b0;
-                obfuscation_map_read_ptr_next = 3'hx;
-                obfuscation_map_read_state_next = 'hx;
-                obfuscation_map_accum_next = 40'hxx_xxxx_xxxx;
-            end
-        endcase
-    end
-
-    always @(posedge clock) begin
-        nreset_prev <= nreset;
-
-        if (nreset) begin
-            obfuscation_map_accum <= obfuscation_map_accum_next;
-            obfuscation_map_read_state <= obfuscation_map_read_state_next;
-            obfuscation_map_read_ptr <= obfuscation_map_read_ptr_next;
-            obfuscation_map_out <= obfuscation_map_out_next;
-        end else begin
-            obfuscation_map_accum <= 40'hff_ffff_ffff;
-            obfuscation_map_read_state <= `OBFU_MAP_READ_STATE_IDLE;
-            obfuscation_map_read_ptr <= 3'h0;
-            obfuscation_map_out <= 40'hff_ffff_ffff;
-        end
     end
 endmodule
 

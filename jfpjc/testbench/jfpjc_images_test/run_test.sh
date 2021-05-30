@@ -25,14 +25,12 @@ for f in ./dsp-test-images/*.tiff; do
     # For all of the images, convert them to 320x240 grayscale pgm for comparison purposes.
     >&2 echo "converting " $f
     newpgm=$(basename ${f%.tiff})
-    convert "$f" "${newpgm}.pgm"
-    convert -gravity center -crop 320x240+0+0 "${newpgm}.pgm" "${newpgm}_crop.pgm"
-    convert "${newpgm}_crop.pgm" -extent 320x240 -gravity NorthWest -background black "${newpgm}_320x240.pgm"
-    rm "${newpgm}.pgm"
-    rm "${newpgm}_crop.pgm"
+    convert -gravity center -crop 320x240+0+0 "$f" \
+            -extent 320x240 -gravity NorthWest -background black "${newpgm}_320x240.pgm"
+    convert -extent 324x244 -gravity Center -background black  "${newpgm}_320x240.pgm" "${newpgm}_padded.pgm"
 
     # Convert the image to a hex file
-    $PROJECT_BASE/tools/image_to_hex.py "${newpgm}_320x240.pgm" > testimg.hex
+    $PROJECT_BASE/tools/image_to_hex.py "${newpgm}_padded.pgm" > testimg.hex
     if [ "$?" -ne 0 ]; then exit 1; fi
 
     # Run verilog
