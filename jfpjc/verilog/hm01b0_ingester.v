@@ -13,41 +13,69 @@
 module hm01b0_ingester(input                      clock,
                        input                      nreset,
 
+                       // hm01b0 interface
                        input                      hm01b0_pixclk,
                        input [7:0]                hm01b0_pixdata,
                        input                      hm01b0_hsync,
                        input                      hm01b0_vsync,
 
-                       output reg [($clog2(num_ebr) - 1):0] output_block_select,
+                       // output buffer select; common to both obfuscation map output and EBR
+                       // buffer output.
                        output reg [0:0]           frontbuffer_select,
+
+                       // EBR buffer output interface
+                       output reg [($clog2(num_ebr) - 1):0] output_block_select,
                        output reg [($clog2(ebr_size) - 1):0] output_write_addr,
                        output reg [7:0]           output_pixval,
+
                        output reg [0:0]           wren);
     parameter x_front_padding = 0, x_back_padding = 0, y_front_padding = 0, y_back_padding = 0;
     localparam width_pix = 320, height_pix = 240, num_ebr = 5, ebr_size = 512;
-    reg [7:0] hm01b0_pixdata_prev;
-    reg hm01b0_pixclk_prev [0:1];
+    localparam width_mcu = (width_pix / 8), height_mcu = (height_pix / 8);
     reg [2:0] px;
     reg [2:0] py;
     reg [$clog2(width_pix / 8) - 1 : 0] mcux;
+    reg [$clog2(height_pix / 8) - 1 : 0] mcuy;
+
+    // Latches for preventing metastability.
+    // prev[0] is the most recent, prev[1] is older.
+    reg [7:0] hm01b0_pixdata_prev [0:1];
+    reg hm01b0_pixclk_prev [0:1];
+    reg hm01b0_hsync_prev [0:1];
+    reg hm01b0_vsync_prev [0:1];
+
+    reg new_mcu_row;
 
     // TODO: does this name make sense given the consts used to size it?
     reg [$clog2(ebr_size / 64) - 1 : 0] mcunum_div_num_ebr;
     always @(posedge clock) begin
         if (nreset) begin
-            hm01b0_pixdata_prev <= hm01b0_pixdata;
-            hm01b0_pixclk_prev[0] <= hm01b0_pixclk;
-            hm01b0_pixclk_prev[1] <= hm01b0_pixclk_prev[0];
+            hm01b0_pixdata_prev[0] <= hm01b0_pixdata; hm01b0_pixdata_prev[1] <= hm01b0_pixdata_prev[0];
+            hm01b0_pixclk_prev[0] <= hm01b0_pixclk; hm01b0_pixclk_prev[1] <= hm01b0_pixclk_prev[0];
+            hm01b0_vsync_prev[0] <= hm01b0_vsync; hm01b0_vsync_prev[1] <= hm01b0_vsync_prev[0];
+            hm01b0_hsync_prev[0] <= hm01b0_hsync; hm01b0_hsync_prev[1] <= hm01b0_hsync_prev[0];
 
             // mind the edge direction: sparkfun code seems to think that this is rising edge, but
             // other sources disagree.
             if ((!hm01b0_pixclk_prev[1] && hm01b0_pixclk_prev[0]) &&
-                (hm01b0_hsync && hm01b0_vsync)) begin
+                (hm01b0_hsync_prev[0] && hm01b0_vsync_prev[0])) begin
                 wren <= 1'b1;
-                output_pixval <= hm01b0_pixdata_prev + 8'h80;
+
+                // The JPEG algorithm expects values to be 0-centered on [128, 128).
+                // The camera values are uint8 on [0, 256), so we subtract 128 from each value to
+                // int8 on [-128, 128)
+                output_pixval <= hm01b0_pixdata_prev[0] + 8'h80;
             end else begin
                 wren <= 1'b0;
                 output_pixval <= 8'hxx;
+
+                if (!hm01b0_vsync) begin
+                    px <= 'h0;
+                    mcunum_div_num_ebr <= 'h0;
+                    mcux <= 'h0;
+                    mcuy <= 'h0;
+                    py <= 'h0;
+                end
             end
 
             // if write enable was high on the previous cycle, we need to advance the addresses
@@ -103,27 +131,16 @@ module hm01b0_ingester(input                      clock,
 
                 // mcux
                 if (px == 'h7) begin
-                    if (mcux == ((width_pix / 8) - 1)) begin
-                        mcux <= 'h0;
-                    end else begin
-                        mcux <= mcux + 'h1;
-                    end
+                    mcux <= (mcux == ((width_pix / 8) - 1)) ? 'h0 : (mcux + 'h1);
                 end else begin
                     mcux <= mcux;
                 end
 
-                // py
-                if ((px == 'h7) && (mcux == ((width_pix / 8) - 1))) begin
-                    py <= py + 'h1;
-                end else begin
-                    py <= py;
-                end
+                py <= ((px == 'h7) && (mcux == ((width_pix / 8) - 1))) ? (py + 'h1) : py;
 
-                if ((px == 'h7) && (mcux == ((width_pix / 8) - 1)) && (py == 'h7)) begin
-                    frontbuffer_select <= frontbuffer_select + 'h1;
-                end else begin
-                    frontbuffer_select <= frontbuffer_select;
-                end
+                //mcuy <= new_mcu_row ? (mcuy == ;
+                mcuy <= mcuy;
+                frontbuffer_select <= new_mcu_row ? (frontbuffer_select + 'h1) : frontbuffer_select;
             end else begin
                 px <= px;
                 py <= py;
@@ -136,11 +153,15 @@ module hm01b0_ingester(input                      clock,
             output_pixval <= 'hxx;
             wren <= 'h0;
 
-            hm01b0_pixclk_prev[0] <= hm01b0_pixclk;
-            hm01b0_pixclk_prev[1] <= hm01b0_pixclk;
+            hm01b0_pixclk_prev[0] <= hm01b0_pixclk; hm01b0_pixclk_prev[1] <= hm01b0_pixclk;
+            hm01b0_pixdata_prev[0] <= hm01b0_pixdata; hm01b0_pixdata_prev[1] <= hm01b0_pixdata;
+            hm01b0_vsync_prev[0] <= hm01b0_vsync; hm01b0_vsync_prev[1] <= hm01b0_vsync;
+            hm01b0_hsync_prev[0] <= hm01b0_vsync; hm01b0_hsync_prev[1] <= hm01b0_hsync;
+
             px <= 'h0;
             mcunum_div_num_ebr <= 'h0;
             mcux <= 'h0;
+            mcuy <= 'h0;
             py <= 'h0;
         end
     end
@@ -148,6 +169,8 @@ module hm01b0_ingester(input                      clock,
     always @* begin
         // this is a cheaper (mcunum_div_num_ebr * 64) + (py * 8) + px
         output_write_addr = {mcunum_div_num_ebr, py, px};
+
+        new_mcu_row = ((px == 'h7) && (mcux == ((width_pix / 8) - 1)) && (py == 'h7));
     end
 endmodule
 
