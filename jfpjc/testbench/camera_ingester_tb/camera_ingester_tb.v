@@ -3,7 +3,7 @@
 
 `timescale 1ns/100ps
 
-module hm01b0_ingester_tb();
+module camera_ingester_tb();
     reg clock;
     always begin clock = 0; #(500.0 / 12.0); clock = 1; #(500.0 / 12.0); end
 
@@ -11,8 +11,7 @@ module hm01b0_ingester_tb();
 
     localparam IMAGE_WIDTH = 320;
     localparam IMAGE_HEIGHT = 240;
-    //localparam LINES_TO_READ = 'b1011_1110;
-    localparam LINES_TO_READ = 'b1100_0000;
+    localparam LINES_TO_READ = 256;
     localparam MCUS_PER_BUFFER = 8;
 
     ////////////////////////////////////////////////////////////////
@@ -37,10 +36,10 @@ module hm01b0_ingester_tb();
     defparam hm01b0.internal_oscillator_enable = 1;
     defparam hm01b0.internal_oscillator_frequency = 8 * 0.003 * 0.9999;
 
-    defparam hm01b0.left_active_padding = 0;
-    defparam hm01b0.right_active_padding = 0;
-    defparam hm01b0.top_active_padding = 0;
-    defparam hm01b0.bottom_active_padding = 0;
+    defparam hm01b0.left_active_padding = 2;
+    defparam hm01b0.right_active_padding = 2;
+    defparam hm01b0.top_active_padding = 2;
+    defparam hm01b0.bottom_active_padding = 2;
 
     ////////////////////////////////////////////////////////////////
     // Instantiate DUT
@@ -50,23 +49,28 @@ module hm01b0_ingester_tb();
     wire [7:0] output_pixval;
     wire       wren;
 
-    hm01b0_ingester hm01b0_ing(.clock(clock),
-                               .nreset(nreset),
+    camera_ingester ingester(.clock(clock),
+                             .nreset(nreset),
 
-                               .hm01b0_pixclk(hm01b0_pixclk),
-                               .hm01b0_pixdata(hm01b0_pixdata),
-                               .hm01b0_hsync(hm01b0_hsync),
-                               .hm01b0_vsync(hm01b0_vsync),
+                             .pixclk(hm01b0_pixclk),
+                             .pixdata(hm01b0_pixdata),
+                             .hsync(hm01b0_hsync),
+                             .vsync(hm01b0_vsync),
 
-                               .frontbuffer_select(frontbuffer_select),
+                             .frontbuffer_select(frontbuffer_select),
 
-                               .output_block_select(output_ebr_select),
-                               .output_write_addr(output_write_addr),
-                               .output_pixval(output_pixval),
+                             .output_block_select(output_ebr_select),
+                             .output_write_addr(output_write_addr),
+                             .output_pixval(output_pixval),
 
-                               .wren(wren));
+                             .wren(wren));
 
-    initial hm01b0_ing.frontbuffer_select = 0;
+    defparam ingester.left_active_padding = 2;
+    defparam ingester.right_active_padding = 2;
+    defparam ingester.top_active_padding = 2;
+    defparam ingester.bottom_active_padding = 2;
+
+    initial ingester.frontbuffer_select = 0;
 
     ////////////////////////////////////////////////////////////////
     // Buffer indexing
@@ -87,7 +91,7 @@ module hm01b0_ingester_tb();
             assign block_wren[gi] = (((output_ebr_select == (gi % 5)) && wren) &&
                                      (buffer_index == (gi / 5)));
 
-            ice40_ebr image_buffer(.din(output_pixval + 8'h80),
+            ice40_ebr image_buffer(.din(output_pixval),
                                    .write_en(block_wren[gi]),
                                    .waddr(output_write_addr),
                                    .wclk(clock),
@@ -111,13 +115,14 @@ module hm01b0_ingester_tb();
     initial begin: main
         integer i, j, k;
         integer mcu_x, mcu_y, x, y, image_index;
+        integer total_lines_to_read;
         reg [7:0] init_pixel_val;
         reg [7:0] pixel_check_val;
         reg       pixel_check_failed;
 
-        $dumpfile("hm01b0_ingester_tb.vcd");
-        $dumpvars(0, hm01b0_ingester_tb);
-        for (i = 0; i < 2; i = i + 1) $dumpvars(1, hm01b0_ing.hm01b0_pixclk_prev[i]);
+        $dumpfile("camera_ingester_tb.vcd");
+        $dumpvars(0, camera_ingester_tb);
+        for (i = 0; i < 2; i = i + 1) $dumpvars(1, ingester.pixclk_prev[i]);
 
         // initialize camera; the pattern should be such that ascending numbers are stored in
         // ascending buffer locations
@@ -141,11 +146,17 @@ module hm01b0_ingester_tb();
         nreset = 1'b1;
 
         // read some number of lines
-        for (i = 0; i < LINES_TO_READ; i = i + 1) begin
+        if (LINES_TO_READ / IMAGE_HEIGHT)
+          total_lines_to_read = (LINES_TO_READ +
+                                 ((LINES_TO_READ / IMAGE_HEIGHT) + 1) * hm01b0.top_active_padding +
+                                 (LINES_TO_READ / IMAGE_HEIGHT) * hm01b0.bottom_active_padding);
+        for (i = 0; i < total_lines_to_read; i = i + 1) begin
+            $fwrite(32'h8000_0002, "line %d / %d%c[1A\n", i, total_lines_to_read, 8'o33);
             @(posedge hm01b0_hsync);
             @(negedge hm01b0_hsync);
             #1000;
         end
+        $fwrite(32'h8000_0002, "\n");
 
         // print
         pixel_check_val = 0;
@@ -165,9 +176,12 @@ module hm01b0_ingester_tb();
             p = all_results[buffer_number][buffer_addr];
 
             if (p != pixel_check_val) begin
-                if (!pixel_check_failed)
-                  $display("first bad value %02h at buffer %04d index %04d; expected %02h",
-                           p, buffer_number, buffer_addr, pixel_check_val);
+                if (!pixel_check_failed) begin
+                    $display("first bad value %02h at buffer %04d index %04d; expected %02h",
+                             p, buffer_number, buffer_addr, pixel_check_val);
+                    $display("i = %d\n", i);
+                end
+
                 pixel_check_failed = 1;
             end
 

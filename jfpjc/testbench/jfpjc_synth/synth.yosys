@@ -1,5 +1,5 @@
 read_verilog -defer ../../verilog/bitpacker.v
-read_verilog -defer ../../verilog/hm01b0_ingester.v
+read_verilog -defer ../../verilog/camera_ingester.v
 read_verilog -defer ../../verilog/loeffler_dct_88.v
 read_verilog -defer ../../verilog/loeffler_dct_8.v
 read_verilog -defer ../../verilog/pipelined_multiplier.v
