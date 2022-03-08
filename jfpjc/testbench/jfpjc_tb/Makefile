@@ -6,7 +6,7 @@ all: jfpjc_tb.vvp
 VERILOG_FILES:=
 VERILOG_FILES+= jfpjc_tb.v
 VERILOG_FILES+= $(VERILOG)/bitpacker.v
-VERILOG_FILES+= $(VERILOG)/hm01b0_ingester.v
+VERILOG_FILES+= $(VERILOG)/camera_ingester.v
 VERILOG_FILES+= $(VERILOG)/loeffler_dct_88.v
 VERILOG_FILES+= $(VERILOG)/loeffler_dct_8.v
 VERILOG_FILES+= $(VERILOG)/pipelined_multiplier.v

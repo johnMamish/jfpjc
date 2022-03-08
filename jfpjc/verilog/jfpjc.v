@@ -48,15 +48,20 @@ module jfpjc(input                      nreset,
     wire [7:0] ingester_output_pixval;
     wire       ingester_wren;
 
+    // The JPEG algorithm expects values to be 0-centered on [128, 128).
+    // The camera values are uint8 on [0, 256), so we subtract 128 from each value to
+    // int8 on [-128, 128)
+    wire [7:0] adjusted_ingester_output_pixval = ingester_output_pixval + 8'h80;
+
     reg [8:0] dct_buffer_fetch_addr [0:4];
 
-    hm01b0_ingester ingester(.nreset(nreset),
+    camera_ingester ingester(.nreset(nreset),
                              .clock(clock),
 
-                             .hm01b0_pixclk(hm01b0_pixclk),
-                             .hm01b0_pixdata(hm01b0_pixdata),
-                             .hm01b0_hsync(hm01b0_hsync),
-                             .hm01b0_vsync(hm01b0_vsync),
+                             .pixclk(hm01b0_pixclk),
+                             .pixdata(hm01b0_pixdata),
+                             .hsync(hm01b0_hsync),
+                             .vsync(hm01b0_vsync),
 
                              .output_block_select(ingester_output_block_select),
                              .frontbuffer_select(ingester_frontbuffer_select),
@@ -83,7 +88,11 @@ module jfpjc(input                      nreset,
                      (ingester_wren) &&
                      (ingester_frontbuffer_select == 1'h1));
             end
-            ice40_ebr jpeg_buffer(.din(ingester_output_pixval),
+            // The JPEG algorithm expects values to be 0-centered on [128, 128).
+            // The camera values are uint8 on [0, 256), so we subtract 128 from each value to
+            // int8 on [-128, 128)
+
+            ice40_ebr jpeg_buffer(.din(adjusted_ingester_output_pixval),
                                   .write_en(ingester_block_wren[ingester_ebrs_gi]),
                                   .waddr(ingester_output_write_addr),
                                   .wclk(clock),

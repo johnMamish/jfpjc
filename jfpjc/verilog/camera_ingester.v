@@ -1,5 +1,5 @@
-`ifndef HM01B0_INGESTER_V
-`define HM01B0_INGESTER_V
+`ifndef CAMERA_INGESTER_V
+`define CAMERA_INGESTER_V
 
 `timescale 1ns/100ps
 
@@ -10,14 +10,14 @@
  */
 `define SYNCHRONOUS
 `ifdef SYNCHRONOUS
-module hm01b0_ingester(input                      clock,
+module camera_ingester(input                      clock,
                        input                      nreset,
 
-                       // hm01b0 interface
-                       input                      hm01b0_pixclk,
-                       input [7:0]                hm01b0_pixdata,
-                       input                      hm01b0_hsync,
-                       input                      hm01b0_vsync,
+                       // camera interface
+                       input                      pixclk,
+                       input [7:0]                pixdata,
+                       input                      hsync,
+                       input                      vsync,
 
                        // output buffer select; common to both obfuscation map output and EBR
                        // buffer output.
@@ -29,15 +29,57 @@ module hm01b0_ingester(input                      clock,
                        output reg [7:0]           output_pixval,
 
                        output reg [0:0]           wren);
-    parameter x_front_padding = 0, x_back_padding = 0, y_front_padding = 0, y_back_padding = 0;
+    parameter left_active_padding = 0, right_active_padding = 0;
+    parameter top_active_padding = 0, bottom_active_padding = 0;
+
     localparam width_pix = 320, height_pix = 240, num_ebr = 5, ebr_size = 512;
     localparam width_mcu = (width_pix / 8), height_mcu = (height_pix / 8);
-    reg [7:0] hm01b0_pixdata_prev;
-    reg hm01b0_pixclk_prev [0:1];
+
+    // Logic for tracking whether we're in padding or in the active part of the image
+    reg [$clog2(width_pix + left_active_padding + right_active_padding + 2) - 1 : 0] x;
+    reg [$clog2(height_pix + top_active_padding + bottom_active_padding + 2) - 1 : 0] y;
+    wire in_active_region = ((x >= left_active_padding) && (x < (left_active_padding + width_pix)) &&
+                             (y >= top_active_padding) && (y < (top_active_padding + height_pix)));
+
     reg [2:0] px;
     reg [2:0] py;
     reg [$clog2(width_pix / 8) - 1 : 0] mcux;
     reg [$clog2(height_pix / 8) - 1 : 0] mcuy;
+
+    // Latches for preventing metastability.
+    // prev[0] is the most recent, prev[1] is older.
+    reg [7:0] pixdata_prev [0:2];
+    reg pixclk_prev [0:2];
+    reg hsync_prev [0:2];
+    reg vsync_prev [0:2];
+
+    genvar genvi;
+    generate
+        for (genvi = 0; genvi <= 2; genvi = genvi + 1) begin
+            if (genvi == 0) begin
+                always @(posedge clock) begin
+                    pixclk_prev[genvi] <= pixclk;
+                    pixdata_prev[genvi] <= pixdata;
+                    vsync_prev[genvi] <= vsync;
+                    hsync_prev[genvi] <= hsync;
+                end
+            end else begin
+                always @(posedge clock) begin
+                    if (nreset) begin
+                        pixclk_prev[genvi] <= pixclk_prev[genvi - 1];
+                        pixdata_prev[genvi] <= pixdata_prev[genvi - 1];
+                        vsync_prev[genvi] <= vsync_prev[genvi - 1];
+                        hsync_prev[genvi] <= hsync_prev[genvi - 1];
+                    end else begin
+                        pixclk_prev[genvi] <= pixclk;
+                        pixdata_prev[genvi] <= pixdata;
+                        vsync_prev[genvi] <= vsync;
+                        hsync_prev[genvi] <= hsync;
+                    end
+                end
+            end
+        end
+    endgenerate
 
     reg new_mcu_row;
 
@@ -45,19 +87,42 @@ module hm01b0_ingester(input                      clock,
     reg [$clog2(ebr_size / 64) - 1 : 0] mcunum_div_num_ebr;
     always @(posedge clock) begin
         if (nreset) begin
-            hm01b0_pixdata_prev <= hm01b0_pixdata;
-            hm01b0_pixclk_prev[0] <= hm01b0_pixclk;
-            hm01b0_pixclk_prev[1] <= hm01b0_pixclk_prev[0];
-
-            // mind the edge direction: sparkfun code seems to think that this is rising edge, but
-            // other sources disagree.
-            if ((!hm01b0_pixclk_prev[1] && hm01b0_pixclk_prev[0]) &&
-                (hm01b0_hsync && hm01b0_vsync)) begin
-                wren <= 1'b1;
-                output_pixval <= hm01b0_pixdata_prev + 8'h80;
+            // Advance logic for x and y pointers inside image.
+            if (!hsync_prev[1]) begin
+                // could also have some logic in here to sanity check x's value before we clear it.
+                x <= 0;
             end else begin
-                wren <= 1'b0;
+                if (!pixclk_prev[2] && pixclk_prev[1]) begin
+                    // x coordinate increases on every rising edge where hsync is active.
+                    x <= x + 1;
+                end
+            end
+
+            if (!vsync_prev[1]) begin
+                y <= 0;
+            end else begin
+                if (hsync_prev[2] && !hsync_prev[1]) begin
+                    y <= y + 1;
+                end
+            end
+
+            // On rising edges of pixclk, if we are in an active part of the frame, output a pixel
+            // by setting wren active.
+            if ((!pixclk_prev[2] && pixclk_prev[1]) &&
+                hsync_prev[1] && vsync_prev[1] && in_active_region) begin
+                wren <= 1;
+                output_pixval <= pixdata_prev[1];
+            end else begin
+                wren <= 0;
                 output_pixval <= 8'hxx;
+            end
+
+            if (!vsync_prev[0]) begin
+                px <= 'h0;
+                mcunum_div_num_ebr <= 'h0;
+                mcux <= 'h0;
+                mcuy <= 'h0;
+                py <= 'h0;
             end
 
             // if write enable was high on the previous cycle, we need to advance the addresses
@@ -119,29 +184,31 @@ module hm01b0_ingester(input                      clock,
                 end
 
                 py <= ((px == 'h7) && (mcux == ((width_pix / 8) - 1))) ? (py + 'h1) : py;
-
-                //mcuy <= new_mcu_row ? (mcuy == ;
                 mcuy <= mcuy;
                 frontbuffer_select <= new_mcu_row ? (frontbuffer_select + 'h1) : frontbuffer_select;
             end else begin
-                px <= px;
-                py <= py;
-                output_block_select <= output_block_select;
+                if (!vsync_prev[1]) begin
+                    px <= 0; py <= 0;
+                    mcux <= 0; mcuy <= 0;
+
+                    output_block_select <= 0;
+                    mcunum_div_num_ebr <= 0;
+                    frontbuffer_select <= 0;
+                end
             end
         end else begin
             // RESET
-            output_block_select <= 'h0;
-            frontbuffer_select <= 'h0;
-            output_pixval <= 'hxx;
-            wren <= 'h0;
+            x <= 0;
+            y <= 0;
 
-            hm01b0_pixclk_prev[0] <= hm01b0_pixclk;
-            hm01b0_pixclk_prev[1] <= hm01b0_pixclk;
-            px <= 'h0;
-            mcunum_div_num_ebr <= 'h0;
-            mcux <= 'h0;
-            mcuy <= 'h0;
-            py <= 'h0;
+            wren <= 'h0;
+            output_pixval <= 'hxx;
+
+            px <= 'h0; py <= 'h0;
+            mcux <= 'h0; mcuy <= 'h0;
+            output_block_select <= 0;
+            mcunum_div_num_ebr <= 0;
+            frontbuffer_select <= 0;
         end
     end
 

@@ -7,12 +7,11 @@ module jfpjc_tb();
     reg nreset;
 
     //hm01b0
-    reg hm01b0_mclk;          // 100kHz
     wire       hm01b0_pixclk;
     wire [7:0] hm01b0_pixdata;
     wire       hm01b0_hsync;
     wire       hm01b0_vsync;
-    hm01b0_sim hm01b0(.mclk(hm01b0_mclk),
+    hm01b0_sim hm01b0(.mclk(1'bz),
                       .nreset(nreset),
 
                       .clock(hm01b0_pixclk),
@@ -43,6 +42,14 @@ module jfpjc_tb();
                               .rclk(quantization_table_ebr_ren & quantization_table_ebr_rclk),
                               .dout(quantization_table_ebr_dout));
 
+    defparam hm01b0.internal_oscillator_enable = 1;
+    defparam hm01b0.internal_oscillator_frequency = 8 * 0.003 * 0.9999;
+
+    defparam hm01b0.left_active_padding = 2;
+    defparam hm01b0.right_active_padding = 2;
+    defparam hm01b0.top_active_padding = 2;
+    defparam hm01b0.bottom_active_padding = 2;
+
     wire compressor_data_good;
     wire compressor_vsync;
     wire [7:0] compressor_data_out;
@@ -68,15 +75,13 @@ module jfpjc_tb();
                      .data_out(compressor_data_out));
     defparam compressor.quant_table_file = "./quantization_table.hextestcase";
 
-    // generate hm01b0 clock
-    always begin
-        #1250; hm01b0_mclk = ~hm01b0_mclk; #1250;
-    end
+    defparam compressor.ingester.left_active_padding = 2;
+    defparam compressor.ingester.right_active_padding = 2;
+    defparam compressor.ingester.top_active_padding = 2;
+    defparam compressor.ingester.bottom_active_padding = 2;
 
     // generate system clock
-    always begin
-        #250; clock = ~clock; #250;
-    end
+    always begin clock = 0; #(500.0 / 12.0); clock = 1; #(500.0 / 12.0); end
 
     reg [7:0] huffman_out [0:(1 << 17)];
 
@@ -118,7 +123,6 @@ module jfpjc_tb();
 
         //
         clock = 1'b0;
-        hm01b0_mclk = 1'b0;
         nreset = 1'b0;
         #5000;
         nreset = 1'b1;
@@ -126,13 +130,9 @@ module jfpjc_tb();
         // read some number of lines in
 `define LINES_TO_READ (260)
         for (i = 0; i < `LINES_TO_READ; i = i + 1) begin
-            $display("line %d / %d", i, `LINES_TO_READ);
-            while (!((hm01b0_hsync == 0))) begin
-                #1000;
-            end
-            while (!((hm01b0_hsync == 1))) begin
-                #1000;
-            end
+            $fwrite(32'h8000_0002, "line %d / %d%c[1A\n", i, `LINES_TO_READ, 8'o33);
+            @(posedge hm01b0_hsync);
+            @(negedge hm01b0_hsync);
         end
 
         for (i = 0; i < outbuf_idx; i = i + 1) begin
