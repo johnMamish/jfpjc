@@ -15,7 +15,7 @@ What are some salient features?
 ##### The Verilog one
 The Verilog jpeg compressor can be found under the `jfpjc` directory. Right now, it only compresses 320x240 grayscale images and only synthesizes for an iCE40 UltraPlus FPGA, but I plan to make it more general.
 
-It can compress 320x240 grayscale images on an iCE40 at 10fps while taking less than 4 milliWatts. The design has enough clock slack to work up to 90 frames per second, but I haven't tested beyond 10fps.
+It can compress 320x240 grayscale images on an iCE40 at 10fps while taking less than 4 milliWatts. The design has enough clock slack to work up to 90 frames per second, but I haven't tested beyond 40fps.
 
 ##### The C one
 A C jpeg compressor for microcontrollers can be found under the `jmcujc` directory. It's been tested on an Apollo3 microcontroller, where it can compress images at 3fps while taking about 10 milliWatts.
